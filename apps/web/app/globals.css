@@ -11,149 +11,8 @@
   --ashvi-accent-2: #b494ff;
 }
 
-.security-shell {
-  min-height: 100vh;
-  display: grid;
-  place-items: center;
-  padding: 24px;
-  background: radial-gradient(circle at 50% 34%, #182c40 0%, #080d15 38%, #030509 100%);
-  color: var(--ashvi-text);
-}
 
-.security-card {
-  width: min(440px, 100%);
-  padding: 42px 38px 30px;
-  border: 1px solid rgba(125, 229, 255, 0.2);
-  border-radius: 24px;
-  background: rgba(7, 12, 19, 0.88);
-  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.06);
-  text-align: center;
-}
-
-.security-emblem {
-  width: 112px;
-  height: 112px;
-  margin: 0 auto 26px;
-  border-radius: 50%;
-  position: relative;
-  background: radial-gradient(circle, rgba(214, 251, 255, 0.92) 0 4%, rgba(82, 191, 232, 0.28) 28%, transparent 68%);
-  box-shadow: 0 0 42px rgba(125, 229, 255, 0.2);
-}
-
-.security-emblem span,
-.security-emblem i,
-.security-emblem b {
-  position: absolute;
-  inset: 9px;
-  border: 1px solid rgba(125, 229, 255, 0.45);
-  border-radius: 50%;
-  animation: orbit 12s linear infinite;
-}
-
-.security-emblem i { inset: 25px; transform: rotateX(62deg); animation-duration: 16s; }
-.security-emblem b { inset: 2px; transform: rotateY(65deg); animation-duration: 19s; }
-
-.security-kicker,
-.security-status,
-.security-subtitle {
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-}
-
-.security-kicker {
-  margin: 0 0 12px;
-  color: var(--ashvi-accent);
-  font-size: 10px;
-}
-
-.security-card h1 {
-  margin: 0;
-  font-size: 34px;
-  font-weight: 400;
-}
-
-.security-subtitle {
-  margin: 10px 0 30px;
-  color: var(--ashvi-subtle);
-  font-size: 11px;
-}
-
-.security-form {
-  display: grid;
-  gap: 16px;
-  text-align: left;
-}
-
-.security-form label {
-  display: grid;
-  gap: 7px;
-  color: var(--ashvi-subtle);
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.security-form input {
-  width: 100%;
-  padding: 13px 14px;
-  border: 1px solid rgba(125, 229, 255, 0.2);
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.035);
-  color: var(--ashvi-text);
-}
-
-.security-submit {
-  margin-top: 4px;
-  padding: 14px;
-  border: 1px solid rgba(125, 229, 255, 0.32);
-  border-radius: 10px;
-  background: linear-gradient(135deg, rgba(125, 229, 255, 0.15), rgba(180, 148, 255, 0.15));
-  color: var(--ashvi-text);
-  cursor: pointer;
-}
-
-.security-submit:disabled { opacity: 0.55; cursor: wait; }
-
-.security-warning,
-.security-locked {
-  margin: 0;
-  padding: 12px;
-  border: 1px solid rgba(255, 123, 123, 0.24);
-  border-radius: 10px;
-  background: rgba(255, 123, 123, 0.08);
-  color: #ffd7d7;
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-.security-locked { display: grid; gap: 8px; text-align: left; }
-
-.security-status {
-  display: block;
-  margin-top: 26px;
-  color: #7890a4;
-  font-size: 9px;
-}
-
-.security-status span {
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  margin-right: 6px;
-  border-radius: 50%;
-  background: #76e0a2;
-  box-shadow: 0 0 10px #76e0a2;
-}
-
-.security-spinner {
-  width: 28px;
-  height: 28px;
-  margin: 0 auto 16px;
-  border: 2px solid rgba(125, 229, 255, 0.2);
-  border-top-color: var(--ashvi-accent);
-  border-radius: 50%;
-  animation: orbit 1s linear infinite;
-}
+/* Ashvi Authentication styling is strictly isolated in components/auth/auth.css */
 
 * {
   box-sizing: border-box;
@@ -691,6 +550,46 @@ button, input {
 .ashvi-form input:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.voice-controls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.voice-controls select,
+.voice-button {
+  min-height: 38px;
+  padding: 9px 12px;
+  border: 1px solid rgba(125, 229, 255, 0.22);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--ashvi-text);
+}
+
+.voice-button {
+  cursor: pointer;
+}
+
+.voice-button.recording {
+  border-color: rgba(255, 123, 123, 0.6);
+  background: rgba(255, 123, 123, 0.14);
+  color: #ffd7d7;
+}
+
+.voice-button:disabled,
+.voice-controls select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.voice-status {
+  display: block;
+  margin: 8px 0 0 6px;
+  color: var(--ashvi-accent);
+  font-size: 11px;
 }
 
 .stream-status {

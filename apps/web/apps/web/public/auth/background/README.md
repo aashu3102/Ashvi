@@ -1,0 +1,1 @@
+Please place a high-resolution, cinema-quality background image here (e.g., a dark, luxurious study with a window overlooking mountains and a lake at night). Name it "auth-bg.jpg" or similar and update the CSS background-image in globals.css (.security-room--image).

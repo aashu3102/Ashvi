@@ -85,6 +85,9 @@ Expected variables:
 - ASHVI_LOG_LEVEL
 - ASHVI_AI_MODEL
 - OLLAMA_BASE_URL
+- ASHVI_STT_COMMAND / ASHVI_STT_ARGS / ASHVI_STT_MODEL
+- ASHVI_TTS_COMMAND / ASHVI_TTS_ARGS / ASHVI_TTS_MODEL(_EN/_HI)
+- ASHVI_VOICE_COMMAND_TIMEOUT_MS
 - NEXT_PUBLIC_ASHVI_API_URL
 - ASHVI_SESSION_SECRET
 - ASHVI_USER_A_NAME / ASHVI_USER_A_CODE_HASH / ASHVI_USER_A_PASSWORD_HASH
@@ -99,6 +102,14 @@ Generate Argon2id hashes using the installed server dependency and place only th
 For local setup, run `npm run security:setup` from the repository root and enter both identities directly into the terminal. Secret inputs are hidden, hashed with Argon2id, and never written in plaintext.
 
 There is no public registration, guest mode, default account, or frontend-only access control. The second authorized user's independent credential pair is required before production access is enabled.
+
+## Local voice setup
+
+Voice uses two replaceable local command providers. The server accepts microphone audio at `/api/voice/transcribe`, sends the transcript through the existing conversation stream, and synthesizes the completed answer at `/api/voice/synthesize`. Audio is held in temporary files only for the duration of a provider call and is deleted afterward.
+
+Install a local faster-whisper-compatible command and Piper on the server machine. Configure their executable names, arguments, and model paths in the private `.env` file. Arguments are JSON arrays and may use `{input}`, `{output}`, `{outputDir}`, `{model}`, and `{language}` placeholders. Model paths never reach the browser.
+
+For English and Hindi, configure `ASHVI_TTS_MODEL_EN` and `ASHVI_TTS_MODEL_HI` with the corresponding Piper voice model paths. The push-to-talk control lets the user choose English or Hindi, start and stop recording, and interrupt speech output. Microphone recordings are not stored permanently.
 
 ## Installation
 

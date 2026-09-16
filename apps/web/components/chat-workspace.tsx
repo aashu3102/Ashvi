@@ -11,6 +11,7 @@ type DocumentEntry = { id: string; filename: string; mimeType: string; status: s
 type MemoryEntry = { id: string; content: string; category?: string; source?: string; importance?: number };
 type MemorySuggestion = { content: string; category: string; source: string; importance: number };
 type StreamState = "idle" | "connecting" | "streaming";
+type VoiceState = "idle" | "recording" | "transcribing" | "speaking";
 
 export function ChatWorkspace() {
   const [items, setItems] = useState<Conversation[]>([]);
@@ -29,10 +30,16 @@ export function ChatWorkspace() {
   const [previewText, setPreviewText] = useState("");
   const [previewLoading, setPreviewLoading] = useState(false);
   const [streamState, setStreamState] = useState<StreamState>("idle");
+  const [voiceState, setVoiceState] = useState<VoiceState>("idle");
+  const [voiceLanguage, setVoiceLanguage] = useState<"en" | "hi">("en");
   const [retryContent, setRetryContent] = useState("");
   const [activeTab, setActiveTab] = useState<TabKey>("chat");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const streamAbortRef = useRef<AbortController | null>(null);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const recordingStreamRef = useRef<MediaStream | null>(null);
+  const ttsAbortRef = useRef<AbortController | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const loadPanels = async () => {
     try {
@@ -268,16 +275,113 @@ export function ChatWorkspace() {
     streamAbortRef.current?.abort();
   };
 
+  const stopVoice = () => {
+    if (voiceState === "recording") {
+      recorderRef.current?.stop();
+      return;
+    }
+
+    ttsAbortRef.current?.abort();
+    audioRef.current?.pause();
+    audioRef.current = null;
+    setVoiceState("idle");
+  };
+
+  const speak = async (content: string) => {
+    ttsAbortRef.current?.abort();
+    audioRef.current?.pause();
+    const controller = new AbortController();
+    ttsAbortRef.current = controller;
+    setVoiceState("speaking");
+
+    try {
+      const response = await fetch(`${base}/api/voice/synthesize`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ text: content, language: voiceLanguage }),
+        signal: controller.signal,
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null) as { error?: { message?: string } } | null;
+        throw new Error(payload?.error?.message ?? "Ashvi voice output is unavailable.");
+      }
+
+      const url = URL.createObjectURL(await response.blob());
+      const audio = new Audio(url);
+      audioRef.current = audio;
+      audio.onended = () => {
+        URL.revokeObjectURL(url);
+        audioRef.current = null;
+        setVoiceState("idle");
+      };
+      await audio.play();
+    } catch (err) {
+      if (!(err instanceof DOMException && err.name === "AbortError")) {
+        setError(err instanceof Error ? err.message : "Ashvi voice output is unavailable.");
+      }
+      setVoiceState("idle");
+    } finally {
+      if (ttsAbortRef.current === controller) ttsAbortRef.current = null;
+    }
+  };
+
+  const startRecording = async () => {
+    if (!id || streamState !== "idle" || voiceState !== "idle") return;
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
+      setError("This browser does not support local microphone recording.");
+      return;
+    }
+
+    try {
+      const mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mimeType = ["audio/webm;codecs=opus", "audio/webm", "audio/ogg"].find((type) => MediaRecorder.isTypeSupported(type));
+      const recorder = new MediaRecorder(mediaStream, mimeType ? { mimeType } : undefined);
+      const chunks: Blob[] = [];
+      recordingStreamRef.current = mediaStream;
+      recorderRef.current = recorder;
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) chunks.push(event.data);
+      };
+      recorder.onstop = () => {
+        mediaStream.getTracks().forEach((track) => track.stop());
+        recordingStreamRef.current = null;
+        recorderRef.current = null;
+        void (async () => {
+          try {
+            setVoiceState("transcribing");
+            const formData = new FormData();
+            formData.append("audio", new Blob(chunks, { type: mimeType || "audio/webm" }), "recording.webm");
+            const response = await fetch(`${base}/api/voice/transcribe?language=${voiceLanguage}`, {
+              method: "POST",
+              credentials: "include",
+              body: formData,
+            });
+            const payload = await response.json().catch(() => null) as { transcript?: string; error?: { message?: string } } | null;
+            if (!response.ok || !payload?.transcript) throw new Error(payload?.error?.message ?? "Ashvi could not understand the recording.");
+            await sendContent(payload.transcript, true);
+          } catch (err) {
+            setVoiceState("idle");
+            setError(err instanceof Error ? err.message : "Ashvi could not understand the recording.");
+          }
+        })();
+      };
+      recorder.start();
+      setError("");
+      setVoiceState("recording");
+    } catch (err) {
+      recordingStreamRef.current?.getTracks().forEach((track) => track.stop());
+      setError(err instanceof DOMException && err.name === "NotAllowedError" ? "Microphone permission was denied." : "The microphone is unavailable.");
+    }
+  };
+
   const logout = async () => {
     await fetch(`${base}/api/auth/logout`, { method: "POST", credentials: "include" }).catch(() => undefined);
     window.location.reload();
   };
 
-  const send = async (event: FormEvent) => {
-    event.preventDefault();
-    if (!id || !text.trim() || streamState !== "idle") return;
-
-    const content = text.trim();
+  const sendContent = async (content: string, speakResponse = false) => {
+    if (!id || !content || streamState !== "idle") return;
     const userMessage = { id: `temp-user-${Date.now()}`, role: "USER", content };
     const assistantMessage = { id: `temp-assistant-${Date.now()}`, role: "ASSISTANT", content: "" };
 
@@ -339,6 +443,7 @@ export function ChatWorkspace() {
 
           if (payload.type === "done" && payload.assistant) {
             setMessages((current) => current.map((message) => message.id === assistantMessage.id ? payload.assistant! : message));
+            if (speakResponse) void speak(payload.assistant.content);
             return;
           }
 
@@ -355,10 +460,19 @@ export function ChatWorkspace() {
       setError(stopped ? "Response stopped." : err instanceof Error ? err.message : "Ashvi is offline. Start the backend and try again.");
       setRetryContent(content);
       setMessages((current) => current.filter((message) => message.id !== assistantMessage.id && message.id !== userMessage.id));
+      if (speakResponse) setVoiceState("idle");
     } finally {
       setStreamState("idle");
       streamAbortRef.current = null;
     }
+  };
+
+  const send = (event: FormEvent) => {
+    event.preventDefault();
+    if (!text.trim()) return;
+    const content = text.trim();
+    setText("");
+    void sendContent(content);
   };
 
   return (
@@ -576,7 +690,19 @@ export function ChatWorkspace() {
               disabled={!id || streamState !== "idle"}
               placeholder={id ? "Ask Ashvi anything…" : "Choose a capability or begin"}
             />
+            <div className="voice-controls">
+              <select aria-label="Voice language" value={voiceLanguage} onChange={(event) => setVoiceLanguage(event.target.value as "en" | "hi")} disabled={voiceState !== "idle" || streamState !== "idle"}>
+                <option value="en">English</option>
+                <option value="hi">Hindi</option>
+              </select>
+              <button className={voiceState === "recording" ? "voice-button recording" : "voice-button"} type="button" onClick={() => voiceState === "idle" ? void startRecording() : stopVoice()} disabled={!id || streamState !== "idle" || voiceState === "transcribing"} aria-label={voiceState === "recording" ? "Stop recording" : voiceState === "speaking" ? "Stop voice output" : "Start voice input"}>
+                {voiceState === "recording" ? "Stop recording" : voiceState === "transcribing" ? "Understanding…" : voiceState === "speaking" ? "Stop voice" : "Talk to Ashvi"}
+              </button>
+            </div>
             {streamState !== "idle" && <button className="ghost-button" type="button" onClick={stopStream}>Stop</button>}
+            {voiceState === "recording" && <span className="voice-status">Listening locally…</span>}
+            {voiceState === "transcribing" && <span className="voice-status">Converting speech locally…</span>}
+            {voiceState === "speaking" && <span className="voice-status">Ashvi is speaking…</span>}
           </form>
         )}
       </section>

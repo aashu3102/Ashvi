@@ -10,6 +10,7 @@ import { documentRoutes } from "../routes/document.routes.js";
 import { memoryRoutes } from "../routes/memory.routes.js";
 import { settingsRoutes } from "../routes/settings.routes.js";
 import { authRoutes } from "../routes/auth.routes.js";
+import { voiceRoutes } from "../routes/voice.routes.js";
 import { authPlugin } from "../plugins/auth.plugin.js";
 
 export function buildApp(environment: Environment, options: { withDatabase?: boolean; withAuth?: boolean } = {}): FastifyInstance {
@@ -66,6 +67,7 @@ export function buildApp(environment: Environment, options: { withDatabase?: boo
   if ((options.withDatabase ?? true) && (environment.NODE_ENV !== "test" || options.withAuth)) app.register(authPlugin, { environment });
   app.register(healthRoutes);
   app.register(authRoutes, { environment });
+  app.register(voiceRoutes, { environment });
   app.register(conversationRoutes, { environment });
   app.register(memoryRoutes);
   app.register(documentRoutes);
