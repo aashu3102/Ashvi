@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { X, Volume2, Sparkles, Send, Mic } from "lucide-react";
+import { X, Volume2, Sparkles, Send } from "lucide-react";
 
 export type ChatMessage = {
   id: string;
@@ -15,6 +15,7 @@ interface Props {
   messages: ChatMessage[];
   streamText: string;
   isStreaming: boolean;
+  error?: string;
   onClose: () => void;
   onSendMessage: (text: string) => void;
   onSpeak?: (text: string) => void;
@@ -25,6 +26,7 @@ export function ActiveChatModal({
   messages,
   streamText,
   isStreaming,
+  error,
   onClose,
   onSendMessage,
   onSpeak,
@@ -125,7 +127,7 @@ export function ActiveChatModal({
           )}
 
           {messages.map((m) => {
-            const isUser = m.role === "user";
+            const isUser = m.role.toLowerCase() === "user";
             return (
               <div
                 key={m.id}
@@ -167,6 +169,12 @@ export function ActiveChatModal({
               </div>
             );
           })}
+
+          {error && (
+            <div role="alert" style={{ color: "#fca5a5", fontSize: "13px" }}>
+              {error}
+            </div>
+          )}
 
           {streamText && (
             <div

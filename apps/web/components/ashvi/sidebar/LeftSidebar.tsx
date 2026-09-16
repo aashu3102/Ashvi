@@ -45,15 +45,6 @@ export function LeftSidebar({
     { key: "explore", label: "Explore", icon: Compass },
   ];
 
-  const defaultSpaces = [
-    "GATE 2027 Prep",
-    "Ashvi Development",
-    "Research Paper",
-    "Netflix Marketing PPT",
-    "Travel Plan",
-    "Ideas & Thoughts",
-  ];
-
   return (
     <aside className="ashvi-left-sidebar" aria-label="Primary navigation">
       <div>
@@ -114,37 +105,36 @@ export function LeftSidebar({
           })}
         </ul>
 
-        {/* Recent Spaces Section */}
-        <div className="ashvi-sidebar-section">
-          <div className="ashvi-sidebar-section-header">
-            <span className="ashvi-sidebar-section-title">Recent Spaces</span>
-            <button
-              type="button"
-              className="ashvi-sidebar-add-btn"
-              onClick={onNewSpace}
-              aria-label="Add new space"
-            >
-              <Plus size={13} />
-            </button>
+        {/* Recent Spaces Section — rendered only when user has created spaces */}
+        {recentSpaces && recentSpaces.length > 0 && (
+          <div className="ashvi-sidebar-section">
+            <div className="ashvi-sidebar-section-header">
+              <span className="ashvi-sidebar-section-title">Recent Spaces</span>
+              <button
+                type="button"
+                className="ashvi-sidebar-add-btn"
+                onClick={onNewSpace}
+                aria-label="Add new space"
+              >
+                <Plus size={13} />
+              </button>
+            </div>
+            <ul className="ashvi-recent-spaces-list">
+              {recentSpaces.slice(0, 6).map((space) => (
+                <li key={space.id}>
+                  <button
+                    type="button"
+                    className="ashvi-recent-space-link"
+                    onClick={() => onSelectSpace && onSelectSpace(space.id)}
+                  >
+                    <span className="ashvi-bullet-dot" />
+                    <span className="ashvi-recent-space-name">{space.title}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
           </div>
-          <ul className="ashvi-recent-spaces-list">
-            {(recentSpaces.length > 0
-              ? recentSpaces.slice(0, 6).map((s) => ({ title: s.title, id: s.id }))
-              : defaultSpaces.map((title, i) => ({ title, id: `def-${i}` }))
-            ).map((space) => (
-              <li key={space.id}>
-                <button
-                  type="button"
-                  className="ashvi-recent-space-link"
-                  onClick={() => onSelectSpace && onSelectSpace(space.id)}
-                >
-                  <span className="ashvi-bullet-dot" />
-                  <span className="ashvi-recent-space-name">{space.title}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
+        )}
       </div>
 
       {/* Bottom User Area */}

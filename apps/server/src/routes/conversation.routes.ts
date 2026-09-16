@@ -8,9 +8,10 @@ import { verifyAnswer } from "../services/verification.service.js";
 import { retrieveDocumentContext } from "../services/document.service.js";
 import { retrieveRelevantMemories, suggestMemory } from "../services/memory.service.js";
 import { buildChatTurns } from "../services/context.service.js";
+import type { AIProvider } from "../ai/provider.js";
 
-export async function conversationRoutes(app: FastifyInstance, options: { environment: Environment }) {
-  const provider = new OllamaProvider(options.environment.OLLAMA_BASE_URL, options.environment.ASHVI_AI_MODEL);
+export async function conversationRoutes(app: FastifyInstance, options: { environment: Environment; provider?: AIProvider }) {
+  const provider = options.provider ?? new OllamaProvider(options.environment.OLLAMA_BASE_URL, options.environment.ASHVI_AI_MODEL);
   app.get("/api/conversations", async (request) => listConversations(app.prisma, request.userId ?? undefined));
   app.post("/api/conversations", async (request, reply) => {
     const body = createConversationSchema.parse(request.body);
@@ -59,6 +60,7 @@ export async function conversationRoutes(app: FastifyInstance, options: { enviro
     if (!conversation || !provider.chatStream) {
       return reply.code(501).send({ error: { code: "AI_STREAM_UNAVAILABLE", message: "Streaming is not available for this provider." } });
     }
+    const chatStream = provider.chatStream;
 
     const stream = Readable.from((async function* () {
       try {
@@ -67,10 +69,12 @@ export async function conversationRoutes(app: FastifyInstance, options: { enviro
         const memoryContext = await retrieveRelevantMemories(app.prisma, body.content, request.userId ?? undefined);
         const suggestion = suggestMemory(body.content);
         if (suggestion) yield `data: ${JSON.stringify({ type: "memory_suggestion", suggestion })}\n\n`;
-        for await (const chunk of provider.chatStream(buildChatTurns(conversation.messages, documentContext, memoryContext))) {
+        for await (const chunk of chatStream.call(provider, buildChatTurns(conversation.messages, documentContext, memoryContext))) {
           fullContent += chunk;
           yield `data: ${JSON.stringify({ type: "chunk", content: chunk })}\n\n`;
         }
+
+        if (!fullContent.trim()) throw new Error("Local AI provider returned an empty response.");
 
         const verification = verifyAnswer(fullContent, documentContext);
         const assistant = await addAssistantMessage(app.prisma, request.params.id, fullContent, { verification });

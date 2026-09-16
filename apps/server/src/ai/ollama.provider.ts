@@ -41,32 +41,27 @@ export class OllamaProvider implements AIProvider {
       buffer = lines.pop() ?? "";
 
       for (const line of lines) {
-        const trimmed = line.trim();
-        if (!trimmed || !trimmed.startsWith("data:")) continue;
-        const data = trimmed.slice(5).trim();
-        if (data === "[DONE]") return;
-
-        try {
-          const payload = JSON.parse(data) as { message?: { content?: string } };
-          const content = payload.message?.content;
-          if (content) yield content;
-        } catch {
-          // Ignore malformed stream chunks and continue to the next event.
-        }
+        const content = parseStreamLine(line);
+        if (content) yield content;
       }
     }
 
-    if (buffer.trim().startsWith("data:")) {
-      const data = buffer.trim().slice(5).trim();
-      if (data !== "[DONE]") {
-        try {
-          const payload = JSON.parse(data) as { message?: { content?: string } };
-          const content = payload.message?.content;
-          if (content) yield content;
-        } catch {
-          // Ignore malformed final stream chunks.
-        }
-      }
-    }
+    const content = parseStreamLine(buffer);
+    if (content) yield content;
+  }
+}
+
+function parseStreamLine(line: string) {
+  const trimmed = line.trim();
+  if (!trimmed) return "";
+
+  const data = trimmed.startsWith("data:") ? trimmed.slice(5).trim() : trimmed;
+  if (!data || data === "[DONE]") return "";
+
+  try {
+    const payload = JSON.parse(data) as { message?: { content?: string } };
+    return payload.message?.content ?? "";
+  } catch {
+    return "";
   }
 }

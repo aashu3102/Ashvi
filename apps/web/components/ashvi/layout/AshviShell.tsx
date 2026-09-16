@@ -7,9 +7,9 @@ import { TopHeader } from "../top-navigation/TopHeader";
 import { HeroSection } from "../hero/HeroSection";
 import { CapabilityCardsGrid } from "../capability-cards/CapabilityCardsGrid";
 import { MainInputBar } from "../command-bar/MainInputBar";
-import { LowerWorkspacePanels } from "../workspace-panels/LowerWorkspacePanels";
 import { RightSidebar } from "../right-sidebar/RightSidebar";
 import { ActiveChatModal, ChatMessage } from "../conversation/ActiveChatModal";
+import { parseAshviSseLine } from "@/lib/sse";
 import "../ashvi.css";
 
 const base = process.env.NEXT_PUBLIC_ASHVI_API_URL ?? "http://127.0.0.1:4000";
@@ -24,6 +24,7 @@ export function AshviShell() {
   const [activeTitle, setActiveTitle] = useState("General");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [streamText, setStreamText] = useState("");
+  const [error, setError] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isChatModalOpen, setIsChatModalOpen] = useState(false);
@@ -39,7 +40,7 @@ export function AshviShell() {
       .then((data) => {
         if (Array.isArray(data)) setConversations(data);
       })
-      .catch(() => undefined);
+      .catch(() => setError("Ashvi could not load conversations."));
   }, []);
 
   // Create new space/conversation
@@ -51,17 +52,13 @@ export function AshviShell() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({}),
       });
-      if (res.ok) {
-        const conv = await res.json();
-        setConversations((prev) => [conv, ...prev]);
-        openConversation(conv.id, conv.title || "New Space");
-      }
-    } catch {
-      // Offline fallback
-      const fallbackId = `local-${Date.now()}`;
-      const fallback = { id: fallbackId, title: "New Space" };
-      setConversations((prev) => [fallback, ...prev]);
-      openConversation(fallbackId, "New Space");
+      if (!res.ok) throw new Error("Ashvi could not create a conversation.");
+      const conv = await res.json();
+      setConversations((prev) => [conv, ...prev]);
+      setError("");
+      await openConversation(conv.id, conv.title || "New Space");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Ashvi could not create a conversation.");
     }
   };
 
@@ -72,6 +69,7 @@ export function AshviShell() {
     setIsChatModalOpen(true);
     setMessages([]);
     setStreamText("");
+    setError("");
 
     try {
       const res = await fetch(`${base}/api/conversations/${id}`, { credentials: "include" });
@@ -82,7 +80,7 @@ export function AshviShell() {
         }
       }
     } catch {
-      // Local view
+      setError("Ashvi could not open that conversation.");
     }
   };
 
@@ -98,17 +96,21 @@ export function AshviShell() {
           headers: { "content-type": "application/json" },
           body: JSON.stringify({}),
         });
-        if (res.ok) {
-          const conv = await res.json();
-          currentId = conv.id;
-          setConversations((prev) => [conv, ...prev]);
-          setActiveConversationId(conv.id);
-          setActiveTitle(conv.title || "Ashvi Space");
-        }
-      } catch {
-        currentId = `local-${Date.now()}`;
-        setActiveConversationId(currentId);
+        if (!res.ok) throw new Error("Ashvi could not create a conversation.");
+        const conv = await res.json();
+        currentId = conv.id;
+        setConversations((prev) => [conv, ...prev]);
+        setActiveConversationId(conv.id);
+        setActiveTitle(conv.title || "Ashvi Space");
+      } catch (cause) {
+        setError(cause instanceof Error ? cause.message : "Ashvi could not create a conversation.");
+        return;
       }
+    }
+
+    if (!currentId) {
+      setError("Ashvi could not open a conversation.");
+      return;
     }
 
     const userMessage: ChatMessage = {
@@ -120,9 +122,10 @@ export function AshviShell() {
     setIsChatModalOpen(true);
     setIsStreaming(true);
     setStreamText("");
+    setError("");
 
     try {
-      const response = await fetch(`${base}/api/conversations/${currentId}/stream`, {
+      const response = await fetch(`${base}/api/conversations/${currentId}/messages/stream`, {
         method: "POST",
         credentials: "include",
         headers: { "content-type": "application/json" },
@@ -130,13 +133,37 @@ export function AshviShell() {
       });
 
       if (!response.ok || !response.body) {
-        throw new Error("Stream failed");
+        const payload = await response.json().catch(() => null) as { error?: { message?: string } } | null;
+        throw new Error(payload?.error?.message ?? "Ashvi could not reach the local AI provider.");
       }
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
-      let fullAssistant = "";
+      let completedAssistant: ChatMessage | null = null;
+      let streamError = "";
+
+      const consumeEvent = (line: string) => {
+        const parsed = parseAshviSseLine(line) as {
+          type?: string;
+          content?: string;
+          assistant?: ChatMessage;
+          error?: string;
+        } | null;
+        if (!parsed) return;
+
+        try {
+          if (parsed.type === "chunk" && parsed.content) {
+            setStreamText((current) => current + parsed.content);
+          } else if (parsed.type === "done" && parsed.assistant) {
+            completedAssistant = parsed.assistant;
+          } else if (parsed.type === "error") {
+            streamError = parsed.error ?? "Ashvi could not reach the local AI provider.";
+          }
+        } catch {
+          streamError = "Ashvi returned an invalid streaming response.";
+        }
+      };
 
       while (true) {
         const { value, done } = await reader.read();
@@ -145,36 +172,18 @@ export function AshviShell() {
         const lines = buffer.split("\n");
         buffer = lines.pop() || "";
 
-        for (const line of lines) {
-          if (line.startsWith("data: ")) {
-            try {
-              const parsed = JSON.parse(line.slice(6));
-              if (parsed.token) {
-                fullAssistant += parsed.token;
-                setStreamText(fullAssistant);
-              }
-            } catch {
-              // Non-json chunk
-            }
-          }
-        }
+        for (const line of lines) consumeEvent(line);
       }
 
-      if (fullAssistant) {
-        setMessages((prev) => [
-          ...prev,
-          { id: `asst-${Date.now()}`, role: "assistant", content: fullAssistant },
-        ]);
-        setStreamText("");
-      }
-    } catch {
-      // Local graceful response
-      const fallbackReply = `I received your thought on "${text}". Processing in private node space...`;
-      setMessages((prev) => [
-        ...prev,
-        { id: `asst-${Date.now()}`, role: "assistant", content: fallbackReply },
-      ]);
+      consumeEvent(buffer);
+      if (streamError) throw new Error(streamError);
+      const assistant = completedAssistant as ChatMessage | null;
+      if (!assistant?.content?.trim()) throw new Error("Ashvi returned an empty response.");
+
+      setMessages((prev) => [...prev, assistant]);
       setStreamText("");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Ashvi could not reach the local AI provider.");
     } finally {
       setIsStreaming(false);
     }
@@ -185,14 +194,16 @@ export function AshviShell() {
     try {
       const formData = new FormData();
       formData.append("file", file);
-      await fetch(`${base}/api/documents/upload`, {
+      const response = await fetch(`${base}/api/documents/upload`, {
         method: "POST",
         credentials: "include",
         body: formData,
       });
+      if (!response.ok) throw new Error("Document upload failed.");
+      setError("");
       alert(`File "${file.name}" uploaded to secure Ashvi documents.`);
-    } catch {
-      alert(`Could not upload "${file.name}" to secure core.`);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : `Could not upload "${file.name}" to secure core.`);
     }
   };
 
@@ -227,12 +238,11 @@ export function AshviShell() {
             credentials: "include",
             body: form,
           });
-          if (res.ok) {
-            const data = await res.json();
-            if (data?.text) handleSendMessage(data.text);
-          }
-        } catch {
-          // Voice offline
+          const data = await res.json().catch(() => null) as { transcript?: string; error?: { message?: string } } | null;
+          if (!res.ok || !data?.transcript) throw new Error(data?.error?.message ?? "Speech recognition is unavailable.");
+          await handleSendMessage(data.transcript);
+        } catch (cause) {
+          setError(cause instanceof Error ? cause.message : "Speech recognition is unavailable.");
         }
       };
 
@@ -247,26 +257,21 @@ export function AshviShell() {
   // Voice TTS Speak
   const handleSpeak = async (text: string) => {
     try {
-      const res = await fetch(`${base}/api/voice/speak`, {
+      const res = await fetch(`${base}/api/voice/synthesize`, {
         method: "POST",
         credentials: "include",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ text }),
       });
-      if (res.ok) {
-        const blob = await res.blob();
-        const url = URL.createObjectURL(blob);
-        if (audioPlayerRef.current) {
-          audioPlayerRef.current.src = url;
-          audioPlayerRef.current.play();
-        }
-      }
-    } catch {
-      // Browser SpeechSynthesis fallback
-      if ("speechSynthesis" in window) {
-        const utterance = new SpeechSynthesisUtterance(text);
-        window.speechSynthesis.speak(utterance);
-      }
+      if (!res.ok) throw new Error("Speech synthesis is unavailable.");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      if (!audioPlayerRef.current) return;
+      audioPlayerRef.current.onended = () => URL.revokeObjectURL(url);
+      audioPlayerRef.current.src = url;
+      await audioPlayerRef.current.play();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Speech synthesis is unavailable.");
     }
   };
 
@@ -326,10 +331,6 @@ export function AshviShell() {
             submitting={isStreaming}
           />
 
-          <LowerWorkspacePanels
-            onSelectSpace={(space) => handleSendMessage(`Open workspace "${space}".`)}
-          />
-
           {/* Bottom Branding */}
           <footer className="ashvi-bottom-status-bar" aria-label="System status">
             <span>BUILT FOR REAL IDEAS. DESIGNED FOR A BRIGHTER TOMORROW.</span>
@@ -354,6 +355,7 @@ export function AshviShell() {
           messages={messages}
           streamText={streamText}
           isStreaming={isStreaming}
+          error={error}
           onClose={() => setIsChatModalOpen(false)}
           onSendMessage={handleSendMessage}
           onSpeak={handleSpeak}

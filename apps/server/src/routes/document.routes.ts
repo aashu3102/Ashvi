@@ -52,15 +52,21 @@ export async function documentRoutes(app: FastifyInstance) {
       return reply.code(400).send({ error: { code: "INVALID_FILE", message: "The uploaded file content does not match its type." } });
     }
 
-    const document = await app.prisma.document.create({
-        data: {
-          userId: request.userId,
-          filename: basename(part.filename),
-          mimeType: part.mimetype,
-          storagePath,
-          status: "PENDING",
-        },
-      });
+    let document;
+    try {
+      document = await app.prisma.document.create({
+          data: {
+            userId: request.userId,
+            filename: basename(part.filename),
+            mimeType: part.mimetype,
+            storagePath,
+            status: "PENDING",
+          },
+        });
+    } catch (error) {
+      await unlink(storagePath).catch(() => {});
+      throw error;
+    }
 
     void processDocument(app.prisma, document.id);
     return reply.code(201).send(document);

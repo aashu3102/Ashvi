@@ -12,8 +12,9 @@ import { settingsRoutes } from "../routes/settings.routes.js";
 import { authRoutes } from "../routes/auth.routes.js";
 import { voiceRoutes } from "../routes/voice.routes.js";
 import { authPlugin } from "../plugins/auth.plugin.js";
+import type { AIProvider } from "../ai/provider.js";
 
-export function buildApp(environment: Environment, options: { withDatabase?: boolean; withAuth?: boolean } = {}): FastifyInstance {
+export function buildApp(environment: Environment, options: { withDatabase?: boolean; withAuth?: boolean; provider?: AIProvider } = {}): FastifyInstance {
   const app = Fastify({
     logger: {
       level: environment.ASHVI_LOG_LEVEL,
@@ -50,6 +51,10 @@ export function buildApp(environment: Environment, options: { withDatabase?: boo
       return reply.code(400).send({ error: { code: "VALIDATION_ERROR", message: "Invalid request." } });
     }
 
+    if (error.name === "ZodError") {
+      return reply.code(400).send({ error: { code: "VALIDATION_ERROR", message: "Invalid request." } });
+    }
+
     return reply.code(error.statusCode && error.statusCode < 500 ? error.statusCode : 500).send({
       error: { code: "INTERNAL_ERROR", message: "An unexpected error occurred." },
     });
@@ -68,7 +73,7 @@ export function buildApp(environment: Environment, options: { withDatabase?: boo
   app.register(healthRoutes);
   app.register(authRoutes, { environment });
   app.register(voiceRoutes, { environment });
-  app.register(conversationRoutes, { environment });
+  app.register(conversationRoutes, { environment, provider: options.provider });
   app.register(memoryRoutes);
   app.register(documentRoutes);
   app.register(settingsRoutes);

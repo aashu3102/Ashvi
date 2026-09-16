@@ -10,7 +10,7 @@ const fakeEnvironment = loadEnvironment({
   ASHVI_STT_COMMAND: process.execPath,
   ASHVI_STT_ARGS: JSON.stringify(["-e", "process.stdout.write('hello from local stt')", "{input}"]),
   ASHVI_TTS_COMMAND: process.execPath,
-  ASHVI_TTS_ARGS: JSON.stringify(["-e", "require('node:fs').writeFileSync(process.argv[1], 'RIFF-fake-wav')", "{output}"]),
+  ASHVI_TTS_ARGS: JSON.stringify(["-e", "let text = ''; process.stdin.on('data', (chunk) => text += chunk); process.stdin.on('end', () => { if (text !== 'hello\\n') process.exit(1); require('node:fs').writeFileSync(process.argv[1], 'RIFF-fake-wav'); })", "{output}"]),
 });
 
 describe("local voice providers", () => {

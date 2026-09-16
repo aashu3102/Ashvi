@@ -21,7 +21,7 @@ export class PiperProvider implements TextToSpeechProvider {
         { input: "", output, outputDir: directory, model, language },
       );
       await writeFile(join(directory, "text.txt"), text, "utf8");
-      await runVoiceCommand(this.environment.ASHVI_TTS_COMMAND, args, this.environment.ASHVI_VOICE_COMMAND_TIMEOUT_MS);
+      await runVoiceCommand(this.environment.ASHVI_TTS_COMMAND, args, this.environment.ASHVI_VOICE_COMMAND_TIMEOUT_MS, `${text}\n`);
       const audio = await readFile(output);
       return { audio, contentType: "audio/wav" };
     } catch {

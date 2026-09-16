@@ -62,14 +62,29 @@ describe("private access boundary", () => {
     expect(response.cookies.some((cookie) => cookie.name === "ashvi_session" && cookie.httpOnly)).toBe(true);
   });
 
+  it("blocks repeated failures from the same IP signal", async () => {
+    const remoteAddress = "10.0.0.44";
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const response = await app.inject({ method: "POST", url: "/api/auth/login", remoteAddress, payload: { username: "unknown-user", code: "wrong", password: "wrong" } });
+      expect(response.statusCode).toBe(401);
+    }
+
+    const blocked = await app.inject({ method: "POST", url: "/api/auth/login", remoteAddress, payload: { username: userB, code, password } });
+    expect(blocked.statusCode).toBe(401);
+  });
+
   it("does not allow one identity to open another user's conversation", async () => {
     const login = await app.inject({ method: "POST", url: "/api/auth/login", remoteAddress: "10.0.0.3", payload: { username: userB, code, password } });
     const foreignUser = await app.prisma.user.create({ data: { username: `foreign-${Date.now()}`, name: "Foreign test user" } });
     const foreignConversation = await app.prisma.conversation.create({ data: { userId: foreignUser.id, title: "Private conversation" } });
+    const foreignDocument = await app.prisma.document.create({ data: { userId: foreignUser.id, filename: "private.txt", mimeType: "text/plain", storagePath: `private-${Date.now()}.txt`, status: "READY" } });
+    await app.prisma.documentChunk.create({ data: { documentId: foreignDocument.id, chunkIndex: 0, content: "private document", tokenCount: 2 } });
     const cookie = login.cookies.find((item) => item.name === "ashvi_session")?.value;
     const response = await app.inject({ method: "GET", url: `/api/conversations/${foreignConversation.id}`, headers: { cookie: `ashvi_session=${cookie}` } });
+    const documentResponse = await app.inject({ method: "GET", url: `/api/documents/${foreignDocument.id}/preview`, headers: { cookie: `ashvi_session=${cookie}` } });
 
     expect(response.statusCode).toBe(404);
+    expect(documentResponse.statusCode).toBe(404);
     await app.prisma.user.delete({ where: { id: foreignUser.id } });
   });
 });

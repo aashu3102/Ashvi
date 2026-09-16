@@ -11,6 +11,13 @@ interface Props {
   submitting?: boolean;
 }
 
+const tools = [
+  { label: "Deep Think", icon: Lightbulb },
+  { label: "Search Web", icon: Search },
+  { label: "Attach Files", icon: FileUp },
+  { label: "Use Tools", icon: Wrench },
+];
+
 export function MainInputBar({
   onSendMessage,
   onUploadFile,
@@ -34,13 +41,6 @@ export function MainInputBar({
       onUploadFile(file);
     }
   };
-
-  const tools = [
-    { label: "Deep Think", icon: Lightbulb },
-    { label: "Search Web", icon: Search },
-    { label: "Attach Files", icon: FileUp, action: () => fileInputRef.current?.click() },
-    { label: "Use Tools", icon: Wrench },
-  ];
 
   return (
     <div className="ashvi-command-bar-wrapper">
@@ -110,7 +110,7 @@ export function MainInputBar({
               key={t.label}
               type="button"
               className="ashvi-tool-pill"
-              onClick={() => t.action && t.action()}
+              onClick={t.label === "Attach Files" ? () => fileInputRef.current?.click() : undefined}
             >
               <Icon size={12} />
               <span>{t.label}</span>

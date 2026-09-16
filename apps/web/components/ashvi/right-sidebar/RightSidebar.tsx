@@ -11,8 +11,6 @@ import {
   Mic,
   Image as ImageIcon,
   Globe,
-  FileText,
-  Clock,
 } from "lucide-react";
 
 interface Props {
@@ -29,14 +27,6 @@ export function RightSidebar({
   onUploadFile,
 }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const activities = [
-    { title: "Notes on Machine Learning", time: "2 hours ago" },
-    { title: "Combinatorial Problems", time: "4 hours ago" },
-    { title: "Netflix PPT - Draft", time: "6 hours ago" },
-    { title: "Ashvi Project Plan", time: "1 day ago" },
-    { title: "Travel Itinerary - Himachal", time: "2 days ago" },
-  ];
 
   return (
     <aside className="ashvi-right-sidebar" aria-label="Activity and tools">
@@ -114,37 +104,6 @@ export function RightSidebar({
             <div className="ashvi-cs-desc">A space for everything</div>
           </div>
         </div>
-      </div>
-
-      {/* Recent Activity Panel */}
-      <div className="ashvi-panel-card" style={{ minHeight: "auto", padding: "14px" }}>
-        <div className="ashvi-panel-head" style={{ marginBottom: "8px", paddingBottom: "6px" }}>
-          <div className="ashvi-panel-title-wrap">
-            <Clock size={13} />
-            <span style={{ fontSize: "11.5px" }}>Recent Activity</span>
-          </div>
-          <button type="button" className="ashvi-panel-action-link">
-            View all
-          </button>
-        </div>
-
-        <ul className="ashvi-panel-list" style={{ gap: "4px" }}>
-          {activities.map((a) => (
-            <li key={a.title} className="ashvi-panel-list-item" style={{ padding: "6px 8px" }}>
-              <div className="ashvi-item-lead" style={{ gap: "8px" }}>
-                <FileText size={13} style={{ color: "#7ee8fa", opacity: 0.8 }} />
-                <div className="ashvi-item-content">
-                  <span className="ashvi-item-title" style={{ fontSize: "11px" }}>
-                    {a.title}
-                  </span>
-                  <span className="ashvi-item-meta" style={{ fontSize: "9px" }}>
-                    {a.time}
-                  </span>
-                </div>
-              </div>
-            </li>
-          ))}
-        </ul>
       </div>
 
       {/* Quick Tools Grid */}

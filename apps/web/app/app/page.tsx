@@ -1,4 +1,4 @@
-import { AshviShell } from "@/components/ashvi/layout/AshviShell";
+import { AuthGate } from "@/components/auth-gate";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -7,5 +7,5 @@ export const metadata: Metadata = {
 };
 
 export default function AppPage() {
-  return <AshviShell />;
+  return <AuthGate />;
 }

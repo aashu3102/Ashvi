@@ -83,7 +83,7 @@ export function AuthenticationPage({ onSuccess }: { onSuccess?: () => void }) {
         if (onSuccess) {
           onSuccess();
         } else {
-          window.location.href = "/";
+          router.push("/");
         }
       }, 650);
     } catch {
