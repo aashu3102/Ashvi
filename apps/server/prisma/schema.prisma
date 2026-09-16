@@ -1,0 +1,156 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+enum MemoryCategory {
+  PREFERENCE
+  FACT
+  INSTRUCTION
+  OTHER
+}
+
+enum MemorySource {
+  USER
+  SYSTEM
+  DOCUMENT
+  EXPLICIT_MEMORY
+  OTHER
+}
+
+enum DocumentStatus {
+  PENDING
+  PROCESSING
+  READY
+  FAILED
+}
+
+model User {
+  id            String          @id @default(cuid())
+  name          String
+  email         String?         @unique
+  username      String?         @unique
+  conversations Conversation[]
+  memories      Memory[]
+  documents     Document[]
+  settings      UserSettings?
+  sessions      AuthSession[]
+  authState     AuthState?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+}
+
+model AuthSession {
+  id         String   @id @default(cuid())
+  userId     String
+  tokenHash  String   @unique
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  lastSeenAt DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+}
+
+model AuthState {
+  userId             String   @id
+  failedAttempts     Int      @default(0)
+  lockedUntil        DateTime?
+  lastFailedAt       DateTime?
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model AuthRateLimit {
+  keyHash        String   @id
+  failedAttempts Int      @default(0)
+  lockedUntil    DateTime?
+  lastFailedAt   DateTime?
+  updatedAt      DateTime @updatedAt
+}
+
+model Conversation {
+  id        String    @id @default(cuid())
+  userId    String
+  title     String    @default("New conversation")
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages  Message[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([userId, updatedAt])
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  role           MessageRole
+  content        String       @db.Text
+  metadata       Json?
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+
+  @@index([conversationId, createdAt])
+}
+
+model Memory {
+  id         String         @id @default(cuid())
+  userId     String
+  content    String         @db.Text
+  category   MemoryCategory @default(OTHER)
+  source     MemorySource
+  importance Int            @default(3)
+  metadata   Json?
+  user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  @@index([userId, category])
+}
+
+model Document {
+  id          String         @id @default(cuid())
+  userId      String
+  filename    String
+  mimeType    String
+  storagePath String         @unique
+  status      DocumentStatus @default(PENDING)
+  metadata    Json?
+  chunks      DocumentChunk[]
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@index([userId, status])
+}
+
+model DocumentChunk {
+  id         String   @id @default(cuid())
+  documentId String
+  chunkIndex Int
+  content    String   @db.Text
+  tokenCount Int
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@unique([documentId, chunkIndex])
+  @@index([documentId])
+}
+
+model UserSettings {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  preferences Json     @default("{}")
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}

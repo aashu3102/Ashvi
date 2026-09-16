@@ -1,0 +1,22 @@
+{
+  "name": "ashvi",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Ashvi v0 local-first AI assistant foundation",
+  "packageManager": "npm@11.19.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=22 <25",
+    "npm": ">=10"
+  },
+  "scripts": {
+    "security:setup": "node scripts/configure-private-access.mjs",
+    "dev": "npm run dev --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present"
+  }
+}

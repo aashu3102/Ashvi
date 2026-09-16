@@ -1,0 +1,11 @@
+{
+  "name": "@ashvi/shared",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./schemas": "./schemas/chat.ts",
+    "./types": "./types/chat.ts"
+  },
+  "dependencies": { "zod": "4.1.8" }
+}

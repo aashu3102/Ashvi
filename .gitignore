@@ -1,0 +1,30 @@
+# Dependencies and build output
+node_modules/
+.next/
+dist/
+coverage/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Generated runtime data
+data/documents/*
+!data/documents/.gitkeep
+data/logs/*
+!data/logs/.gitkeep
+data/workspace/*
+!data/workspace/.gitkeep
+models/*
+!models/.gitkeep
+
+# Prisma generated files
+apps/server/src/generated/
+
+# Editor and operating-system files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.log
