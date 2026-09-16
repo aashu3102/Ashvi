@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { AuthenticationPage } from "./auth/AuthenticationPage";
-import { ChatWorkspace } from "./chat-workspace";
+import { AshviShell } from "./ashvi/layout/AshviShell";
 import "./auth/auth.css";
 
 const base = process.env.NEXT_PUBLIC_ASHVI_API_URL ?? "http://127.0.0.1:4000";
@@ -38,7 +38,7 @@ export function AuthGate() {
   }
 
   if (authenticated) {
-    return <ChatWorkspace />;
+    return <AshviShell />;
   }
 
   return <AuthenticationPage onSuccess={() => setAuthenticated(true)} />;
