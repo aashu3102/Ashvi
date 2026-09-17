@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { AuthenticationEnvironment } from "./AuthenticationEnvironment";
 import { AshviBrandPanel } from "./AshviBrandPanel";
 import { SecureAccessCard } from "./SecureAccessCard";
-import { getApiBaseUrl, getAuthHeaders, clearAuthToken } from "@/lib/api";
+import { getApiBaseUrl, getAuthHeaders, clearAuthToken, setAuthToken } from "@/lib/api";
 import "./auth.css";
 
 type LoginState = "checking" | "locked" | "login" | "unlocking" | "authenticated";
@@ -25,7 +25,6 @@ export function AuthenticationPage({ onSuccess }: { onSuccess?: () => void }) {
       .then((response) => {
         if (!isMounted) return;
         if (response.ok) {
-          clearAuthToken();
           setState("authenticated");
           if (onSuccess) {
             onSuccess();
@@ -68,6 +67,7 @@ export function AuthenticationPage({ onSuccess }: { onSuccess?: () => void }) {
 
       const payload = (await response.json().catch(() => null)) as {
         error?: { message?: string };
+        token?: string;
       } | null;
 
       setCode("");
@@ -86,7 +86,9 @@ export function AuthenticationPage({ onSuccess }: { onSuccess?: () => void }) {
         return;
       }
 
-      clearAuthToken();
+      if (payload?.token) {
+        setAuthToken(payload.token);
+      }
 
       setState("unlocking");
       window.setTimeout(() => {

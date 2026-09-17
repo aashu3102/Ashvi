@@ -4,8 +4,8 @@ import { isLoopbackHostname, resolveUpstreamBase, rewriteUpstreamCookie, Upstrea
 describe("production upstream resolution", () => {
   it("never uses localhost when running on Vercel", () => {
     expect(() => resolveUpstreamBase({ VERCEL: "1" })).toThrow(UpstreamConfigError);
-    expect(() => resolveUpstreamBase({ VERCEL: "1", ASHVI_API_URL: "http://127.0.0.1:4000" })).toThrow(UpstreamConfigError);
-    expect(() => resolveUpstreamBase({ VERCEL: "1", NEXT_PUBLIC_ASHVI_API_URL: "https://dead.trycloudflare.com" })).toThrow(UpstreamConfigError);
+    expect(() => resolveUpstreamBase({ VERCEL: "1", NEXT_PUBLIC_ASHVI_API_URL: "http://localhost:4000" })).toThrow(UpstreamConfigError);
+    expect(resolveUpstreamBase({ VERCEL: "1", NEXT_PUBLIC_ASHVI_API_URL: "https://ashvi-api.example.workers.dev" })).toBe("https://ashvi-api.example.workers.dev");
     expect(resolveUpstreamBase({ VERCEL: "1", ASHVI_API_URL: "https://ashvi-api.example.workers.dev/" })).toBe("https://ashvi-api.example.workers.dev");
   });
 

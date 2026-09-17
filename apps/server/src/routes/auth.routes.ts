@@ -15,7 +15,7 @@ export async function authRoutes(app: FastifyInstance, options: { environment: E
     const body = loginSchema.parse(request.body);
     try {
       const result = await authenticate(app.prisma, options.environment, body.username, body.code, body.password, request.ip);
-      return reply.setCookie(sessionCookieName, result.token, sessionCookieOptions(options.environment)).send({ user: result.user });
+      return reply.setCookie(sessionCookieName, result.token, sessionCookieOptions(options.environment)).send({ user: result.user, token: result.token });
     } catch {
       return reply.code(401).send({ error: { code: "ACCESS_DENIED", message: "Access could not be verified." } });
     }

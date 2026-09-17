@@ -12,22 +12,22 @@ export function isLoopbackHostname(hostname: string) {
   return LOOPBACK_HOSTS.has(host) || host.endsWith(".localhost");
 }
 
-export function resolveUpstreamBase(env: NodeJS.ProcessEnv = process.env) {
-  const raw = (env.ASHVI_API_URL || (!env.VERCEL ? env.NEXT_PUBLIC_ASHVI_API_URL : "") || "").replace(/\/+$/, "");
+export function resolveUpstreamBase(env: NodeJS.ProcessEnv | Record<string, string | undefined> = process.env) {
+  const raw = (env.ASHVI_API_URL || env.NEXT_PUBLIC_ASHVI_API_URL || env.NEXT_PUBLIC_API_URL || "").replace(/\/+$/, "");
   const onVercel = env.VERCEL === "1";
 
   if (onVercel) {
     if (!raw) {
-      throw new UpstreamConfigError("ASHVI_API_URL must be set to the Cloudflare Secure Core origin.");
+      throw new UpstreamConfigError("ASHVI_API_URL or NEXT_PUBLIC_ASHVI_API_URL must be configured.");
     }
     let hostname = "";
     try {
       hostname = new URL(raw).hostname;
     } catch {
-      throw new UpstreamConfigError("ASHVI_API_URL is not a valid URL.");
+      throw new UpstreamConfigError("API URL is not a valid URL.");
     }
     if (isLoopbackHostname(hostname)) {
-      throw new UpstreamConfigError("ASHVI_API_URL cannot point at localhost in a Vercel deployment.");
+      throw new UpstreamConfigError("API URL cannot point at localhost in a Vercel deployment.");
     }
     return raw;
   }
