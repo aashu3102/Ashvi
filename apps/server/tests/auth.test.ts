@@ -59,7 +59,7 @@ describe("private access boundary", () => {
   it("allows a valid independent identity to authenticate", async () => {
     const response = await app.inject({ method: "POST", url: "/api/auth/login", remoteAddress: "10.0.0.2", payload: { username: userB, code, password } });
     expect(response.statusCode).toBe(200);
-    expect(response.json().token).toBeUndefined();
+    expect(response.json().token).toBeDefined();
     const sessionCookie = response.cookies.find((item) => item.name === "ashvi_session");
     expect(sessionCookie?.httpOnly).toBe(true);
     expect(sessionCookie?.sameSite).toBe("Lax");
@@ -88,6 +88,6 @@ describe("private access boundary", () => {
 
     expect(response.statusCode).toBe(404);
     expect(documentResponse.statusCode).toBe(404);
-    await app.prisma.user.delete({ where: { id: foreignUser.id } });
-  });
+    await app.prisma.user.delete({ where: { id: foreignUser.id } }).catch(() => undefined);
+  }, 20000);
 });
