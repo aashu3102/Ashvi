@@ -9,6 +9,7 @@ import { conversationRoutes } from "../routes/conversation.routes.js";
 import { documentRoutes } from "../routes/document.routes.js";
 import { memoryRoutes } from "../routes/memory.routes.js";
 import { settingsRoutes } from "../routes/settings.routes.js";
+import { taskRoutes } from "../routes/task.routes.js";
 import { authRoutes } from "../routes/auth.routes.js";
 import { voiceRoutes } from "../routes/voice.routes.js";
 import { authPlugin } from "../plugins/auth.plugin.js";
@@ -87,5 +88,6 @@ export function buildApp(
   app.register(memoryRoutes);
   app.register(documentRoutes);
   app.register(settingsRoutes);
+  app.register(taskRoutes);
   return app;
 }

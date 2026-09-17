@@ -5,10 +5,11 @@ import type { ChatMessage } from "../conversation/ActiveChatModal";
 import type { VoiceLanguage, VoiceState } from "@/lib/use-ashvi-voice";
 import { getTimeOfDay, TimeOfDay } from "@/lib/time-of-day";
 import { AshviChatBackground } from "./AshviChatBackground";
+import { AshviChatSidebar } from "./AshviChatSidebar";
 import { AshviChatHeader } from "./AshviChatHeader";
 import { AshviChatMessages } from "./AshviChatMessages";
 import { AshviChatComposer } from "./AshviChatComposer";
-import { AshviConversationDrawer, type ConversationItem } from "./AshviConversationDrawer";
+import type { ConversationItem } from "./AshviConversationDrawer";
 import "./chat.css";
 
 interface Props {
@@ -59,66 +60,81 @@ export function AshviChatView({
   onUploadFile,
 }: Props) {
   const [timeOfDay, setTimeOfDay] = useState<TimeOfDay>(() => getTimeOfDay());
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
-  // Periodically refresh time of day
+  // Periodically refresh time of day to ensure smooth day transitions
   useEffect(() => {
     const timer = setInterval(() => {
       setTimeOfDay(getTimeOfDay());
-    }, 30000);
+    }, 15000);
     return () => clearInterval(timer);
   }, []);
 
   return (
-    <div className="ashvi-chat-room">
-      {/* Dynamic Time of Day Scene Layer with clear scenic view */}
-      <AshviChatBackground forcedTimeOfDay={timeOfDay} />
-
-      {/* Floating Minimal Controls Bar (No large header) */}
-      <AshviChatHeader
-        onBack={onBack}
-        onOpenDrawer={() => setIsDrawerOpen(true)}
-        onNewSpace={onNewSpace}
-        language={voiceLanguage}
-        onSelectLanguage={onSetVoiceLanguage}
-        voiceState={voiceState}
-        isStreaming={isStreaming}
-        conversationCount={conversations.length}
-        title={activeTitle}
-      />
-
-      {/* Real Conversation Drawer with Search, Rename & Delete */}
-      <AshviConversationDrawer
-        isOpen={isDrawerOpen}
-        onClose={() => setIsDrawerOpen(false)}
+    <div className="ashvi-chat-layout-root">
+      {/* 1. Solid Left Sidebar (Fixed on Desktop, Slide-over Drawer on Mobile) */}
+      <AshviChatSidebar
         conversations={conversations}
         activeConversationId={activeConversationId}
         onSelectConversation={onSelectConversation}
         onNewConversation={onNewSpace}
         onRenameConversation={onRenameConversation}
         onDeleteConversation={onDeleteConversation}
-      />
-
-      {/* Center Conversation Stage */}
-      <AshviChatMessages
-        messages={messages}
-        streamText={streamText}
-        isStreaming={isStreaming}
-        error={error}
-        timeOfDay={timeOfDay}
+        onBack={onBack}
         userName={userName}
-        onSpeak={onSpeak}
+        className={isMobileSidebarOpen ? "mobile-open" : ""}
+        onCloseMobileDrawer={() => setIsMobileSidebarOpen(false)}
       />
 
-      {/* Desk Console Composer at bottom */}
-      <AshviChatComposer
-        onSendMessage={onSendMessage}
-        onUploadFile={onUploadFile}
-        isStreaming={isStreaming}
-        voiceState={voiceState}
-        onToggleVoice={onToggleVoice}
-        onInterrupt={onInterrupt}
-      />
+      {/* Mobile Backdrop Overlay */}
+      {isMobileSidebarOpen && (
+        <div
+          className="ashvi-chat-mobile-backdrop"
+          onClick={() => setIsMobileSidebarOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      {/* 2. Main Chat Workspace (occupies all remaining horizontal space) */}
+      <main className="ashvi-chat-main-workspace">
+        {/* Dynamic Scenic Time of Day Background using exact public assets */}
+        <AshviChatBackground forcedTimeOfDay={timeOfDay} />
+
+        {/* Top Chat Bar with Dashboard return, active title, language toggle, and status */}
+        <AshviChatHeader
+          onBack={onBack}
+          onOpenMobileSidebar={() => setIsMobileSidebarOpen(true)}
+          language={voiceLanguage}
+          onSelectLanguage={onSetVoiceLanguage}
+          voiceState={voiceState}
+          isStreaming={isStreaming}
+          title={activeTitle}
+        />
+
+        {/* Center Conversation Stage with Tasks and Action Buttons */}
+        <AshviChatMessages
+          messages={messages}
+          streamText={streamText}
+          isStreaming={isStreaming}
+          error={error}
+          timeOfDay={timeOfDay}
+          userName={userName}
+          onSpeak={onSpeak}
+          onSendMessage={onSendMessage}
+          onUploadFile={onUploadFile}
+          onToggleVoice={onToggleVoice}
+        />
+
+        {/* Console Input Bar anchored at bottom */}
+        <AshviChatComposer
+          onSendMessage={onSendMessage}
+          onUploadFile={onUploadFile}
+          isStreaming={isStreaming}
+          voiceState={voiceState}
+          onToggleVoice={onToggleVoice}
+          onInterrupt={onInterrupt}
+        />
+      </main>
     </div>
   );
 }
