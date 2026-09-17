@@ -3,16 +3,15 @@
 import { useEffect, useState } from "react";
 import { AuthenticationPage } from "./auth/AuthenticationPage";
 import { AshviShell } from "./ashvi/layout/AshviShell";
+import { getApiBaseUrl } from "@/lib/api";
 import "./auth/auth.css";
-
-const base = process.env.NEXT_PUBLIC_ASHVI_API_URL ?? "http://127.0.0.1:4000";
 
 export function AuthGate() {
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
 
   useEffect(() => {
     let isMounted = true;
-    fetch(`${base}/api/auth/session`, { credentials: "include" })
+    fetch(`${getApiBaseUrl()}/api/auth/session`, { credentials: "include" })
       .then((res) => {
         if (isMounted) setAuthenticated(res.ok);
       })

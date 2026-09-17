@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { X, Volume2, Sparkles, Send } from "lucide-react";
+import { X, Volume2, Sparkles, Send, Mic, Square } from "lucide-react";
+import type { VoiceLanguage, VoiceState } from "@/lib/use-ashvi-voice";
 
 export type ChatMessage = {
   id: string;
@@ -16,6 +17,11 @@ interface Props {
   streamText: string;
   isStreaming: boolean;
   error?: string;
+  voiceState?: VoiceState;
+  voiceLanguage?: VoiceLanguage;
+  onSetVoiceLanguage?: (lang: VoiceLanguage) => void;
+  onToggleVoice?: () => void;
+  onInterrupt?: () => void;
   onClose: () => void;
   onSendMessage: (text: string) => void;
   onSpeak?: (text: string) => void;
@@ -27,6 +33,11 @@ export function ActiveChatModal({
   streamText,
   isStreaming,
   error,
+  voiceState = "idle",
+  voiceLanguage = "en",
+  onSetVoiceLanguage,
+  onToggleVoice,
+  onInterrupt,
   onClose,
   onSendMessage,
   onSpeak,
@@ -38,6 +49,25 @@ export function ActiveChatModal({
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages, streamText]);
+
+  const getVoiceBadge = () => {
+    switch (voiceState) {
+      case "listening":
+        return { label: "Listening...", color: "#ef4444", bg: "rgba(239, 68, 68, 0.15)" };
+      case "transcribing":
+        return { label: "Transcribing...", color: "#38bdf8", bg: "rgba(56, 189, 248, 0.15)" };
+      case "thinking":
+        return { label: "Thinking...", color: "#f59e0b", bg: "rgba(245, 158, 11, 0.15)" };
+      case "speaking":
+        return { label: "Ashvi Speaking...", color: "#10b981", bg: "rgba(16, 185, 129, 0.15)" };
+      case "interrupted":
+        return { label: "Interrupted", color: "#94a3b8", bg: "rgba(148, 163, 184, 0.15)" };
+      default:
+        return null;
+    }
+  };
+
+  const badge = getVoiceBadge();
 
   return (
     <div
@@ -89,14 +119,94 @@ export function ActiveChatModal({
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={onClose}
-            className="ashvi-utility-btn"
-            aria-label="Close conversation"
-          >
-            <X size={16} />
-          </button>
+          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+            {badge && (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  padding: "4px 10px",
+                  borderRadius: "12px",
+                  background: badge.bg,
+                  border: `1px solid ${badge.color}40`,
+                  fontSize: "11px",
+                  color: badge.color,
+                  fontWeight: 500,
+                }}
+              >
+                <span
+                  style={{
+                    width: "6px",
+                    height: "6px",
+                    borderRadius: "50%",
+                    background: badge.color,
+                    boxShadow: `0 0 8px ${badge.color}`,
+                  }}
+                />
+                {badge.label}
+              </div>
+            )}
+
+            {/* Barge-In Stop Button */}
+            {voiceState === "speaking" && onInterrupt && (
+              <button
+                type="button"
+                onClick={onInterrupt}
+                className="ashvi-utility-btn"
+                style={{ color: "#ef4444", borderColor: "rgba(239, 68, 68, 0.3)" }}
+                title="Barge-in: Stop voice playback"
+                aria-label="Stop speech"
+              >
+                <Square size={14} />
+              </button>
+            )}
+
+            {/* Voice Language Toggle */}
+            {onSetVoiceLanguage && (
+              <div style={{ display: "flex", borderRadius: "8px", overflow: "hidden", border: "1px solid rgba(255, 255, 255, 0.1)" }}>
+                <button
+                  type="button"
+                  onClick={() => onSetVoiceLanguage("en")}
+                  style={{
+                    padding: "3px 8px",
+                    fontSize: "10px",
+                    fontWeight: 600,
+                    background: voiceLanguage === "en" ? "rgba(126, 232, 250, 0.2)" : "transparent",
+                    color: voiceLanguage === "en" ? "#7ee8fa" : "#8fa0b5",
+                    border: "none",
+                    cursor: "pointer",
+                  }}
+                >
+                  EN
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onSetVoiceLanguage("hi")}
+                  style={{
+                    padding: "3px 8px",
+                    fontSize: "10px",
+                    fontWeight: 600,
+                    background: voiceLanguage === "hi" ? "rgba(126, 232, 250, 0.2)" : "transparent",
+                    color: voiceLanguage === "hi" ? "#7ee8fa" : "#8fa0b5",
+                    border: "none",
+                    cursor: "pointer",
+                  }}
+                >
+                  HI
+                </button>
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="ashvi-utility-btn"
+              aria-label="Close conversation"
+            >
+              <X size={16} />
+            </button>
+          </div>
         </div>
 
         {/* Messages Body */}
@@ -118,32 +228,30 @@ export function ActiveChatModal({
                 textAlign: "center",
                 color: "#8fa0b5",
                 fontSize: "13px",
-                fontFamily: "var(--ashvi-font-display)",
-                fontStyle: "italic",
+                maxWidth: "340px",
+                lineHeight: "1.6",
               }}
             >
-              Ask anything. Ashvi is thinking alongside you.
+              <Sparkles size={24} style={{ color: "#7ee8fa", margin: "0 auto 12px", opacity: 0.8 }} />
+              <p style={{ margin: 0, color: "#f6efe2", fontWeight: 500 }}>Secure Private Channel Ready</p>
+              <p style={{ margin: "6px 0 0", fontSize: "12px" }}>
+                Ask Ashvi code, technical architecture, reasoning, or tap the microphone to speak naturally.
+              </p>
             </div>
           )}
 
           {messages.map((m) => {
-            const isUser = m.role.toLowerCase() === "user";
+            const isUser = m.role === "user";
             return (
               <div
                 key={m.id}
                 style={{
-                  display: "flex",
-                  flexDirection: "column",
                   alignSelf: isUser ? "flex-end" : "flex-start",
                   maxWidth: "80%",
                   padding: "12px 16px",
                   borderRadius: isUser ? "14px 14px 2px 14px" : "14px 14px 14px 2px",
-                  background: isUser
-                    ? "linear-gradient(135deg, rgba(37, 99, 235, 0.35) 0%, rgba(29, 78, 216, 0.25) 100%)"
-                    : "rgba(18, 26, 40, 0.8)",
-                  border: isUser
-                    ? "1px solid rgba(147, 197, 253, 0.3)"
-                    : "1px solid rgba(126, 232, 250, 0.16)",
+                  background: isUser ? "linear-gradient(135deg, #1e3a5f 0%, #152943 100%)" : "rgba(14, 22, 35, 0.85)",
+                  border: isUser ? "1px solid rgba(147, 197, 253, 0.3)" : "1px solid rgba(255, 255, 255, 0.08)",
                   color: "#f6efe2",
                   fontSize: "13.5px",
                   lineHeight: "1.5",
@@ -204,7 +312,7 @@ export function ActiveChatModal({
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              const input = (e.currentTarget.elements.namedItem("chatInput") as HTMLInputElement);
+              const input = e.currentTarget.elements.namedItem("chatInput") as HTMLInputElement;
               if (input && input.value.trim()) {
                 onSendMessage(input.value.trim());
                 input.value = "";
@@ -229,6 +337,26 @@ export function ActiveChatModal({
                 outline: "none",
               }}
             />
+
+            {onToggleVoice && (
+              <button
+                type="button"
+                onClick={onToggleVoice}
+                className={`ashvi-utility-btn ${voiceState === "listening" ? "is-recording" : ""}`}
+                style={{
+                  height: "44px",
+                  width: "44px",
+                  borderRadius: "50%",
+                  color: voiceState === "listening" ? "#ef4444" : "#7ee8fa",
+                  borderColor: voiceState === "listening" ? "#ef4444" : "rgba(126, 232, 250, 0.3)",
+                }}
+                aria-label={voiceState === "listening" ? "Stop recording" : "Start speaking"}
+                title={voiceState === "listening" ? "Stop recording" : "Speak to Ashvi"}
+              >
+                <Mic size={16} />
+              </button>
+            )}
+
             <button
               type="submit"
               className="ashvi-btn-send"

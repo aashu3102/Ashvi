@@ -1,8 +1,7 @@
 "use client";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { AshviCore } from "./ashvi-core";
-
-const base = process.env.NEXT_PUBLIC_ASHVI_API_URL ?? "http://127.0.0.1:4000";
+import { getApiBaseUrl } from "@/lib/api";
 
 type TabKey = "chat" | "documents" | "memory";
 type Conversation = { id: string; title: string };
@@ -14,6 +13,7 @@ type StreamState = "idle" | "connecting" | "streaming";
 type VoiceState = "idle" | "recording" | "transcribing" | "speaking";
 
 export function ChatWorkspace() {
+  const base = getApiBaseUrl();
   const [items, setItems] = useState<Conversation[]>([]);
   const [id, setId] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);

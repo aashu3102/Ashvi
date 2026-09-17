@@ -1,11 +1,18 @@
 import { spawn } from "node:child_process";
 
-export function parseCommandArgs(value: string, fallback: string[]) {
+export function parseCommandArgs(value: string, fallback: string[]): string[] {
+  if (!value || typeof value !== "string") return fallback;
   try {
     const parsed = JSON.parse(value);
     if (Array.isArray(parsed) && parsed.every((item) => typeof item === "string")) return parsed as string[];
   } catch {
-    // Invalid configuration is reported when the provider is used.
+    try {
+      const unescaped = value.replace(/\\"/g, '"');
+      const parsed = JSON.parse(unescaped);
+      if (Array.isArray(parsed) && parsed.every((item) => typeof item === "string")) return parsed as string[];
+    } catch {
+      // Fallback below
+    }
   }
   return fallback;
 }

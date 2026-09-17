@@ -24,6 +24,15 @@ const environmentSchema = z.object({
   ASHVI_USER_B_NAME: z.string().min(1).max(80).optional(),
   ASHVI_USER_B_CODE_HASH: z.string().startsWith("$argon2id$").optional(),
   ASHVI_USER_B_PASSWORD_HASH: z.string().startsWith("$argon2id$").optional(),
+  ASHVI_MAX_FILE_SIZE_MB: z.coerce.number().int().min(1).max(500).default(50),
+  ASHVI_MAX_FILES_PER_BATCH: z.coerce.number().int().min(1).max(100).default(30),
+  ASHVI_MAX_DOCUMENT_PAGES: z.coerce.number().int().min(1).max(5000).default(800),
+  ASHVI_CHUNK_SIZE: z.coerce.number().int().min(50).max(2000).default(350),
+  ASHVI_CHUNK_OVERLAP: z.coerce.number().int().min(0).max(500).default(50),
+  ASHVI_EMBEDDING_PROVIDER: z.enum(["local", "ollama"]).default("local"),
+  ASHVI_EMBEDDING_DIMENSIONS: z.coerce.number().int().min(16).max(4096).default(384),
+  ASHVI_RETRIEVAL_TOP_K: z.coerce.number().int().min(1).max(20).default(4),
+  ASHVI_MIN_SIMILARITY: z.coerce.number().min(0).max(1).default(0.15),
 });
 
 export type Environment = z.infer<typeof environmentSchema>;

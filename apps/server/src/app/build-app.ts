@@ -13,8 +13,19 @@ import { authRoutes } from "../routes/auth.routes.js";
 import { voiceRoutes } from "../routes/voice.routes.js";
 import { authPlugin } from "../plugins/auth.plugin.js";
 import type { AIProvider } from "../ai/provider.js";
+import type { AshviOrchestrator } from "../orchestrator/index.js";
+import type { VoiceService } from "../voice/index.js";
 
-export function buildApp(environment: Environment, options: { withDatabase?: boolean; withAuth?: boolean; provider?: AIProvider } = {}): FastifyInstance {
+export function buildApp(
+  environment: Environment,
+  options: {
+    withDatabase?: boolean;
+    withAuth?: boolean;
+    provider?: AIProvider;
+    orchestrator?: AshviOrchestrator;
+    voiceService?: VoiceService;
+  } = {},
+): FastifyInstance {
   const app = Fastify({
     logger: {
       level: environment.ASHVI_LOG_LEVEL,
@@ -32,7 +43,7 @@ export function buildApp(environment: Environment, options: { withDatabase?: boo
 
   app.register(cors, {
     origin: (origin, callback) => {
-      if (!origin || allowedOrigins.has(origin)) {
+      if (!origin || allowedOrigins.has(origin) || origin.endsWith(".vercel.app") || /^https:\/\/[a-zA-Z0-9-]+-.*\.vercel\.app$/.test(origin)) {
         callback(null, true);
         return;
       }
@@ -72,8 +83,8 @@ export function buildApp(environment: Environment, options: { withDatabase?: boo
   if ((options.withDatabase ?? true) && (environment.NODE_ENV !== "test" || options.withAuth)) app.register(authPlugin, { environment });
   app.register(healthRoutes);
   app.register(authRoutes, { environment });
-  app.register(voiceRoutes, { environment });
-  app.register(conversationRoutes, { environment, provider: options.provider });
+  app.register(voiceRoutes, { environment, voiceService: options.voiceService, orchestrator: options.orchestrator });
+  app.register(conversationRoutes, { environment, provider: options.provider, orchestrator: options.orchestrator });
   app.register(memoryRoutes);
   app.register(documentRoutes);
   app.register(settingsRoutes);

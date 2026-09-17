@@ -16,6 +16,10 @@ enum MessageRole {
 enum MemoryCategory {
   PREFERENCE
   FACT
+  PROJECT
+  DECISION
+  ROUTINE
+  CONTEXT
   INSTRUCTION
   OTHER
 }
@@ -28,11 +32,44 @@ enum MemorySource {
   OTHER
 }
 
+enum MemorySourceType {
+  EXPLICIT_USER
+  DERIVED
+  SYSTEM
+  IMPORTED
+}
+
+enum MemoryConfidence {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum MemoryStatus {
+  ACTIVE
+  SUPERSEDED
+  ARCHIVED
+}
+
+enum MemoryScope {
+  PRIVATE
+  SHARED
+}
+
+enum DocumentScope {
+  PRIVATE
+  SHARED
+}
+
 enum DocumentStatus {
   PENDING
   PROCESSING
   READY
   FAILED
+  UPLOADED
+  INDEXED
+  PARTIAL
+  REJECTED
 }
 
 model User {
@@ -103,17 +140,25 @@ model Message {
 }
 
 model Memory {
-  id         String         @id @default(cuid())
-  userId     String
-  content    String         @db.Text
-  category   MemoryCategory @default(OTHER)
-  source     MemorySource
-  importance Int            @default(3)
-  metadata   Json?
-  user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt  DateTime       @default(now())
-  updatedAt  DateTime       @updatedAt
+  id                   String           @id @default(cuid())
+  userId               String
+  scope                MemoryScope      @default(PRIVATE)
+  category             MemoryCategory   @default(OTHER)
+  content              String           @db.Text
+  source               MemorySource     @default(EXPLICIT_MEMORY)
+  sourceType           MemorySourceType @default(EXPLICIT_USER)
+  sourceConversationId String?
+  sourceMessageId      String?
+  confidence           MemoryConfidence @default(HIGH)
+  importance           Int              @default(3)
+  status               MemoryStatus     @default(ACTIVE)
+  supersededBy         String?
+  metadata             Json?
+  user                 User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
 
+  @@index([userId, status, scope])
   @@index([userId, category])
 }
 
@@ -124,26 +169,37 @@ model Document {
   mimeType    String
   storagePath String         @unique
   status      DocumentStatus @default(PENDING)
+  scope       DocumentScope  @default(PRIVATE)
   metadata    Json?
   chunks      DocumentChunk[]
   user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
 
-  @@index([userId, status])
+  @@index([userId, status, scope])
+  @@index([scope, status])
 }
 
 model DocumentChunk {
-  id         String   @id @default(cuid())
-  documentId String
-  chunkIndex Int
-  content    String   @db.Text
-  tokenCount Int
-  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  createdAt  DateTime @default(now())
+  id             String   @id @default(cuid())
+  documentId     String
+  chunkIndex     Int
+  content        String   @db.Text
+  tokenCount     Int
+  pageNumber     Int?
+  sectionHeading String?
+  slideNumber    Int?
+  sheetName      String?
+  lineStart      Int?
+  lineEnd        Int?
+  embedding      Float[]  @default([])
+  metadata       Json?
+  document       Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  createdAt      DateTime @default(now())
 
   @@unique([documentId, chunkIndex])
   @@index([documentId])
+  @@index([documentId, chunkIndex])
 }
 
 model UserSettings {

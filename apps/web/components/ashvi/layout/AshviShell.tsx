@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { AshviBackground } from "./AshviBackground";
 import { LeftSidebar } from "../sidebar/LeftSidebar";
 import { TopHeader } from "../top-navigation/TopHeader";
@@ -10,13 +10,14 @@ import { MainInputBar } from "../command-bar/MainInputBar";
 import { RightSidebar } from "../right-sidebar/RightSidebar";
 import { ActiveChatModal, ChatMessage } from "../conversation/ActiveChatModal";
 import { parseAshviSseLine } from "@/lib/sse";
+import { getApiBaseUrl } from "@/lib/api";
+import { useAshviVoice } from "@/lib/use-ashvi-voice";
 import "../ashvi.css";
-
-const base = process.env.NEXT_PUBLIC_ASHVI_API_URL ?? "http://127.0.0.1:4000";
 
 type Conversation = { id: string; title: string };
 
 export function AshviShell() {
+  const base = getApiBaseUrl();
   const [activeTab, setActiveTab] = useState("home");
   const [selectedCapability, setSelectedCapability] = useState("chat");
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -26,12 +27,31 @@ export function AshviShell() {
   const [streamText, setStreamText] = useState("");
   const [error, setError] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
-  const [isRecording, setIsRecording] = useState(false);
   const [isChatModalOpen, setIsChatModalOpen] = useState(false);
 
-  const recorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
-  const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
+  const voice = useAshviVoice({
+    conversationId: activeConversationId,
+    onTranscript: (transcript) => {
+      const userMessage: ChatMessage = {
+        id: `msg-user-${Date.now()}`,
+        role: "user",
+        content: transcript,
+      };
+      setMessages((prev) => [...prev, userMessage]);
+      setIsChatModalOpen(true);
+      setStreamText("");
+    },
+    onAssistantResponse: (fullText) => {
+      const assistantMessage: ChatMessage = {
+        id: `msg-asst-${Date.now()}`,
+        role: "assistant",
+        content: fullText,
+      };
+      setMessages((prev) => [...prev, assistantMessage]);
+      setStreamText("");
+    },
+    onError: (err) => setError(err),
+  });
 
   // Load conversations on mount
   useEffect(() => {
@@ -41,7 +61,7 @@ export function AshviShell() {
         if (Array.isArray(data)) setConversations(data);
       })
       .catch(() => setError("Ashvi could not load conversations."));
-  }, []);
+  }, [base]);
 
   // Create new space/conversation
   const handleNewSpace = async () => {
@@ -207,77 +227,8 @@ export function AshviShell() {
     }
   };
 
-  // Voice recording toggle
-  const handleToggleVoice = async () => {
-    if (isRecording) {
-      if (recorderRef.current && recorderRef.current.state !== "inactive") {
-        recorderRef.current.stop();
-      }
-      setIsRecording(false);
-      return;
-    }
-
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream);
-      audioChunksRef.current = [];
-
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) audioChunksRef.current.push(e.data);
-      };
-
-      recorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/wav" });
-        stream.getTracks().forEach((track) => track.stop());
-
-        try {
-          const form = new FormData();
-          form.append("file", audioBlob, "voice.wav");
-          const res = await fetch(`${base}/api/voice/transcribe`, {
-            method: "POST",
-            credentials: "include",
-            body: form,
-          });
-          const data = await res.json().catch(() => null) as { transcript?: string; error?: { message?: string } } | null;
-          if (!res.ok || !data?.transcript) throw new Error(data?.error?.message ?? "Speech recognition is unavailable.");
-          await handleSendMessage(data.transcript);
-        } catch (cause) {
-          setError(cause instanceof Error ? cause.message : "Speech recognition is unavailable.");
-        }
-      };
-
-      recorder.start();
-      recorderRef.current = recorder;
-      setIsRecording(true);
-    } catch {
-      alert("Microphone access could not be initialized.");
-    }
-  };
-
-  // Voice TTS Speak
-  const handleSpeak = async (text: string) => {
-    try {
-      const res = await fetch(`${base}/api/voice/synthesize`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ text }),
-      });
-      if (!res.ok) throw new Error("Speech synthesis is unavailable.");
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      if (!audioPlayerRef.current) return;
-      audioPlayerRef.current.onended = () => URL.revokeObjectURL(url);
-      audioPlayerRef.current.src = url;
-      await audioPlayerRef.current.play();
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Speech synthesis is unavailable.");
-    }
-  };
-
   return (
     <div className="ashvi-app-shell">
-      <audio ref={audioPlayerRef} style={{ display: "none" }} />
 
       {/* Layer 1 & 2: Atmospheric cinematic background */}
       <AshviBackground />
@@ -326,8 +277,8 @@ export function AshviShell() {
           <MainInputBar
             onSendMessage={handleSendMessage}
             onUploadFile={handleUploadFile}
-            isRecording={isRecording}
-            onToggleVoice={handleToggleVoice}
+            isRecording={voice.isListening}
+            onToggleVoice={voice.toggleListening}
             submitting={isStreaming}
           />
 
@@ -341,8 +292,8 @@ export function AshviShell() {
         {/* Right Sidebar */}
         <RightSidebar
           currentSpaceName={activeTitle}
-          isListening={isRecording}
-          onToggleVoice={handleToggleVoice}
+          isListening={voice.isListening}
+          onToggleVoice={voice.toggleListening}
           onUploadFile={handleUploadFile}
         />
       </div>
@@ -355,10 +306,15 @@ export function AshviShell() {
           messages={messages}
           streamText={streamText}
           isStreaming={isStreaming}
-          error={error}
+          error={error || voice.voiceError}
+          voiceState={voice.voiceState}
+          voiceLanguage={voice.voiceLanguage}
+          onSetVoiceLanguage={voice.setVoiceLanguage}
+          onToggleVoice={voice.toggleListening}
+          onInterrupt={voice.interrupt}
           onClose={() => setIsChatModalOpen(false)}
           onSendMessage={handleSendMessage}
-          onSpeak={handleSpeak}
+          onSpeak={voice.speakText}
         />
       )}
     </div>

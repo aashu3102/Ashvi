@@ -18,6 +18,15 @@ data/workspace/*
 !data/workspace/.gitkeep
 models/*
 !models/.gitkeep
+apps/server/models/*
+!apps/server/models/.gitkeep
+
+# Temporary and local test audio files
+.tmp/
+*.wav
+out.txt
+out_transcribe.txt
+out_wav_transcribe.txt
 
 # Prisma generated files
 apps/server/src/generated/

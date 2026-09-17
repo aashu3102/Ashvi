@@ -5,9 +5,8 @@ import { useRouter } from "next/navigation";
 import { AuthenticationEnvironment } from "./AuthenticationEnvironment";
 import { AshviBrandPanel } from "./AshviBrandPanel";
 import { SecureAccessCard } from "./SecureAccessCard";
+import { getApiBaseUrl } from "@/lib/api";
 import "./auth.css";
-
-const base = process.env.NEXT_PUBLIC_ASHVI_API_URL ?? "http://127.0.0.1:4000";
 
 type LoginState = "checking" | "locked" | "login" | "unlocking" | "authenticated";
 
@@ -22,7 +21,7 @@ export function AuthenticationPage({ onSuccess }: { onSuccess?: () => void }) {
 
   useEffect(() => {
     let isMounted = true;
-    fetch(`${base}/api/auth/session`, { credentials: "include" })
+    fetch(`${getApiBaseUrl()}/api/auth/session`, { credentials: "include" })
       .then((response) => {
         if (!isMounted) return;
         if (response.ok) {
@@ -54,7 +53,7 @@ export function AuthenticationPage({ onSuccess }: { onSuccess?: () => void }) {
     setMessage("");
 
     try {
-      const response = await fetch(`${base}/api/auth/login`, {
+      const response = await fetch(`${getApiBaseUrl()}/api/auth/login`, {
         method: "POST",
         credentials: "include",
         headers: { "content-type": "application/json" },
