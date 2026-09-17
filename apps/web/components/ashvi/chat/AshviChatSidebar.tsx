@@ -73,36 +73,8 @@ export function AshviChatSidebar({
 
   return (
     <aside className={`ashvi-chat-solid-sidebar ${className}`} aria-label="Chat conversations">
-      {/* Top Brand Header */}
-      <div className="ashvi-chat-sidebar-brand-row">
-        <div className="ashvi-chat-sidebar-brand">
-          <svg
-            className="ashvi-brand-blade-emblem"
-            viewBox="0 0 60 70"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-            aria-hidden="true"
-            style={{ width: "24px", height: "28px" }}
-          >
-            <path
-              d="M30 4 L38 28 L48 34 L36 38 L38 64 L30 52 L22 64 L24 38 L12 34 L22 28 Z"
-              fill="url(#sidebar-sword-gold)"
-              stroke="#f0d575"
-              strokeWidth="1.2"
-            />
-            <line x1="30" y1="4" x2="30" y2="52" stroke="#ffffff" strokeWidth="1.5" strokeLinecap="round" />
-            <circle cx="30" cy="38" r="3" fill="#7ee8fa" />
-            <defs>
-              <linearGradient id="sidebar-sword-gold" x1="12" y1="4" x2="48" y2="64" gradientUnits="userSpaceOnUse">
-                <stop offset="0%" stopColor="#f5ede0" />
-                <stop offset="40%" stopColor="#d4af37" />
-                <stop offset="100%" stopColor="#9a7b20" />
-              </linearGradient>
-            </defs>
-          </svg>
-          <span className="ashvi-chat-brand-name">ASHVI</span>
-        </div>
-
+      {/* Top Row: Back to Dashboard */}
+      <div className="ashvi-chat-sidebar-top-nav">
         <button
           type="button"
           className="ashvi-chat-sidebar-back-btn"
@@ -124,6 +96,38 @@ export function AshviChatSidebar({
             <X size={16} />
           </button>
         )}
+      </div>
+
+      {/* Ashvi Blade Logo + ASHVI Branding directly below Dashboard button */}
+      <div className="ashvi-chat-sidebar-brand-block">
+        <svg
+          className="ashvi-brand-blade-emblem"
+          viewBox="0 0 60 70"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+          aria-hidden="true"
+          style={{ width: "26px", height: "30px" }}
+        >
+          <path
+            d="M30 4 L38 28 L48 34 L36 38 L38 64 L30 52 L22 64 L24 38 L12 34 L22 28 Z"
+            fill="url(#sidebar-sword-gold)"
+            stroke="#f0d575"
+            strokeWidth="1.2"
+          />
+          <line x1="30" y1="4" x2="30" y2="52" stroke="#ffffff" strokeWidth="1.5" strokeLinecap="round" />
+          <circle cx="30" cy="38" r="3" fill="#7ee8fa" />
+          <defs>
+            <linearGradient id="sidebar-sword-gold" x1="12" y1="4" x2="48" y2="64" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stopColor="#f5ede0" />
+              <stop offset="40%" stopColor="#d4af37" />
+              <stop offset="100%" stopColor="#9a7b20" />
+            </linearGradient>
+          </defs>
+        </svg>
+        <div className="ashvi-chat-brand-meta">
+          <span className="ashvi-chat-brand-name">ASHVI</span>
+          <span className="ashvi-chat-brand-tagline">LIVING INTELLIGENCE</span>
+        </div>
       </div>
 
       {/* New Conversation Button */}

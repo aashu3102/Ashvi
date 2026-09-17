@@ -3,8 +3,6 @@
 import { useEffect, useRef } from "react";
 import type { ChatMessage } from "../conversation/ActiveChatModal";
 import { AshviChatMessageItem } from "./AshviChatMessageItem";
-import { AshviDailyTasks } from "./AshviDailyTasks";
-import { AshviChatActions } from "./AshviChatActions";
 import { getGreeting, TimeOfDay } from "@/lib/time-of-day";
 
 interface Props {
@@ -15,9 +13,6 @@ interface Props {
   timeOfDay: TimeOfDay;
   userName?: string | null;
   onSpeak?: (text: string) => void;
-  onSendMessage: (text: string) => void;
-  onUploadFile?: (file: File) => void;
-  onToggleVoice?: () => void;
 }
 
 export function AshviChatMessages({
@@ -28,9 +23,6 @@ export function AshviChatMessages({
   timeOfDay,
   userName,
   onSpeak,
-  onSendMessage,
-  onUploadFile,
-  onToggleVoice,
 }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -48,22 +40,12 @@ export function AshviChatMessages({
       <div ref={scrollRef} className="ashvi-chat-scroll-area">
         <div className="ashvi-chat-content-width">
           {isEmpty ? (
-            /* Clean Authentic Empty State with Tasks and Actions */
+            /* Clean Authentic Dominant Scenic Empty State */
             <div className="ashvi-chat-empty-state">
               <div className="ashvi-chat-greeting-box">
                 <h1 className="ashvi-chat-greeting-title">{greeting}</h1>
                 <p className="ashvi-chat-greeting-subtitle">Same thoughts. Bigger possibilities.</p>
               </div>
-
-              {/* Functional Daily Tasks Section */}
-              <AshviDailyTasks />
-
-              {/* Four Functional Action Buttons */}
-              <AshviChatActions
-                onSendMessage={onSendMessage}
-                onUploadFile={onUploadFile}
-                onToggleVoice={onToggleVoice}
-              />
             </div>
           ) : (
             <>

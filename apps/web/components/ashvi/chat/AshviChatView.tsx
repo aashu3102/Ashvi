@@ -111,7 +111,7 @@ export function AshviChatView({
           title={activeTitle}
         />
 
-        {/* Center Conversation Stage with Tasks and Action Buttons */}
+        {/* Center Conversation Stage */}
         <AshviChatMessages
           messages={messages}
           streamText={streamText}
@@ -120,12 +120,9 @@ export function AshviChatView({
           timeOfDay={timeOfDay}
           userName={userName}
           onSpeak={onSpeak}
-          onSendMessage={onSendMessage}
-          onUploadFile={onUploadFile}
-          onToggleVoice={onToggleVoice}
         />
 
-        {/* Console Input Bar anchored at bottom */}
+        {/* Console Input Bar with Tasks & Action buttons anchored at bottom */}
         <AshviChatComposer
           onSendMessage={onSendMessage}
           onUploadFile={onUploadFile}
@@ -133,6 +130,7 @@ export function AshviChatView({
           voiceState={voiceState}
           onToggleVoice={onToggleVoice}
           onInterrupt={onInterrupt}
+          showActions={messages.length === 0 && !streamText}
         />
       </main>
     </div>

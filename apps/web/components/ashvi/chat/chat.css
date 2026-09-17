@@ -33,34 +33,49 @@
   transition: transform 300ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* Brand Row */
-.ashvi-chat-sidebar-brand-row {
+/* Sidebar Top Navigation */
+.ashvi-chat-sidebar-top-nav {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 16px 14px;
+  padding: 14px 16px 8px;
+}
+
+.ashvi-chat-sidebar-brand-block {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px 14px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-.ashvi-chat-sidebar-brand {
+.ashvi-chat-brand-meta {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
 }
 
 .ashvi-chat-brand-name {
   font-family: "Cormorant Garamond", Georgia, serif;
-  font-size: 18px;
+  font-size: 19px;
   font-weight: 700;
   letter-spacing: 0.18em;
   color: #f5ede0;
+  line-height: 1.1;
+}
+
+.ashvi-chat-brand-tagline {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  color: #94a3b8;
+  margin-top: 2px;
 }
 
 .ashvi-chat-sidebar-back-btn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 5px 10px;
+  padding: 5px 12px;
   border-radius: 9999px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: rgba(255, 255, 255, 0.05);
@@ -75,6 +90,7 @@
   background: rgba(255, 255, 255, 0.12);
   color: #ffffff;
   border-color: rgba(255, 255, 255, 0.24);
+  transform: translateX(-1px);
 }
 
 .ashvi-chat-sidebar-close-mobile {
@@ -428,8 +444,8 @@
   inset: 0;
   z-index: 1;
   background: 
-    radial-gradient(ellipse at 50% 30%, rgba(5, 8, 14, 0.04) 0%, rgba(4, 7, 12, 0.35) 100%),
-    linear-gradient(to bottom, rgba(4, 7, 12, 0.15) 0%, rgba(4, 7, 12, 0.05) 50%, rgba(3, 6, 12, 0.6) 100%);
+    radial-gradient(ellipse at 50% 30%, rgba(5, 8, 14, 0.02) 0%, rgba(4, 7, 12, 0.25) 100%),
+    linear-gradient(to bottom, rgba(4, 7, 12, 0.12) 0%, rgba(4, 7, 12, 0.05) 50%, rgba(3, 6, 12, 0.5) 75%, rgba(3, 6, 12, 0.88) 100%);
   pointer-events: none;
 }
 
@@ -662,54 +678,177 @@
 }
 
 /* ============================================================
-   5. DAILY TASKS SECTION
+   5. COMPACT TASKS TODAY BUTTON & FLOATING MODAL
    ============================================================ */
-.ashvi-chat-tasks-section {
-  width: 100%;
-  background: rgba(8, 12, 20, 0.75);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border-radius: 18px;
-  padding: 16px 20px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+.ashvi-tasks-trigger-wrapper {
+  position: relative;
+  display: inline-flex;
 }
 
-.ashvi-tasks-header {
+.ashvi-tasks-trigger-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  border-radius: 9999px;
+  border: 1px solid rgba(212, 175, 55, 0.32);
+  background: rgba(10, 15, 26, 0.8);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  color: #fef08a;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  transition: all 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.ashvi-tasks-trigger-btn:hover {
+  background: rgba(212, 175, 55, 0.16);
+  border-color: rgba(212, 175, 55, 0.55);
+  color: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(212, 175, 55, 0.25);
+}
+
+.ashvi-tasks-trigger-btn.active {
+  background: rgba(212, 175, 55, 0.22);
+  border-color: #d4af37;
+  color: #ffffff;
+}
+
+.ashvi-tasks-trigger-icon {
+  color: #d4af37;
+}
+
+.ashvi-tasks-trigger-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9999px;
+  background: #d4af37;
+  color: #080c14;
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* Tasks Popover Modal */
+.ashvi-tasks-popover-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  z-index: 50;
+  animation: fadeIn 180ms ease-out;
+}
+
+.ashvi-tasks-popover {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 90%;
+  max-width: 480px;
+  max-height: 80vh;
+  background: rgba(8, 12, 20, 0.94);
+  border: 1px solid rgba(212, 175, 55, 0.35);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  border-radius: 20px;
+  padding: 18px 20px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.75), 0 0 24px rgba(212, 175, 55, 0.12);
+  z-index: 51;
+  display: flex;
+  flex-direction: column;
+  animation: modalPop 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes modalPop {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -46%) scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+@keyframes fadeIn {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+.ashvi-tasks-popover-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  margin-bottom: 14px;
 }
 
-.ashvi-tasks-title {
-  margin: 0;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+.ashvi-tasks-popover-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ashvi-tasks-popover-icon {
   color: #d4af37;
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
 }
 
-.ashvi-tasks-badge {
+.ashvi-tasks-popover-title {
+  margin: 0;
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #f5ede0;
+}
+
+.ashvi-tasks-popover-count {
   font-size: 11px;
   font-weight: 600;
   padding: 2px 8px;
   border-radius: 9999px;
-  background: rgba(212, 175, 55, 0.14);
+  background: rgba(212, 175, 55, 0.15);
+  border: 1px solid rgba(212, 175, 55, 0.3);
   color: #fef08a;
-  border: 1px solid rgba(212, 175, 55, 0.28);
 }
 
-.ashvi-task-input-form {
+.ashvi-tasks-popover-close {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 160ms ease;
+}
+
+.ashvi-tasks-popover-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+.ashvi-task-popover-form {
   display: flex;
   align-items: center;
   gap: 8px;
   margin-bottom: 14px;
 }
 
-.ashvi-task-input {
+.ashvi-task-popover-input {
   flex: 1;
   padding: 9px 14px;
   background: rgba(255, 255, 255, 0.05);
@@ -721,13 +860,13 @@
   transition: all 180ms ease;
 }
 
-.ashvi-task-input:focus {
+.ashvi-task-popover-input:focus {
   background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(212, 175, 55, 0.45);
+  border-color: rgba(212, 175, 55, 0.5);
   box-shadow: 0 0 12px rgba(212, 175, 55, 0.15);
 }
 
-.ashvi-task-add-btn {
+.ashvi-task-popover-add-btn {
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -742,25 +881,27 @@
   transition: all 180ms ease;
 }
 
-.ashvi-task-add-btn:hover:not(:disabled) {
+.ashvi-task-popover-add-btn:hover:not(:disabled) {
   background: linear-gradient(135deg, #e5c158, #c9a738);
   transform: translateY(-1px);
 }
 
-.ashvi-task-add-btn:disabled {
+.ashvi-task-popover-add-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
-.ashvi-tasks-list {
+.ashvi-task-popover-list {
+  max-height: 50vh;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 6px;
+  padding-right: 4px;
 }
 
-.ashvi-tasks-loading,
 .ashvi-tasks-empty {
-  padding: 12px;
+  padding: 16px;
   text-align: center;
   font-size: 13px;
   color: #64748b;
@@ -771,7 +912,7 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 8px 12px;
+  padding: 9px 12px;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 10px;
@@ -853,12 +994,36 @@
   gap: 5px;
 }
 
+.ashvi-completed-tasks-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
 .ashvi-completed-label {
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.08em;
   color: #64748b;
-  margin-bottom: 2px;
+}
+
+.ashvi-tasks-remove-completed-btn {
+  background: transparent;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #f87171;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 160ms ease;
+}
+
+.ashvi-tasks-remove-completed-btn:hover {
+  background: rgba(239, 68, 68, 0.18);
+  border-color: #ef4444;
+  color: #ffffff;
 }
 
 /* ============================================================
@@ -875,23 +1040,23 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 14px;
-  background: rgba(8, 12, 20, 0.72);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  padding: 10px 14px;
+  background: rgba(10, 15, 26, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
   border-radius: 14px;
   cursor: pointer;
   transition: all 200ms cubic-bezier(0.16, 1, 0.3, 1);
   text-align: left;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
 }
 
 .ashvi-chat-action-card:hover {
-  background: rgba(14, 20, 32, 0.88);
-  border-color: rgba(212, 175, 55, 0.4);
+  background: rgba(16, 24, 38, 0.98);
+  border-color: rgba(212, 175, 55, 0.45);
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 12px rgba(212, 175, 55, 0.15);
 }
 
 .ashvi-action-icon {
@@ -1039,26 +1204,45 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: 10px;
   background: transparent;
+  width: 100%;
 }
 
+/* Stack holding Tasks Today button and 4 Action buttons directly above composer */
+.ashvi-composer-top-stack {
+  width: 100%;
+  max-width: 820px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  animation: fadeIn 240ms ease-out;
+}
+
+.ashvi-tasks-trigger-container {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+/* ONLY ONE UNIVERSAL COMPOSER CONSOLE */
 .ashvi-chat-console {
   width: 100%;
   max-width: 820px;
-  background: rgba(8, 12, 20, 0.78);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  background: rgba(10, 15, 24, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
   border-radius: 20px;
   padding: 6px 10px 6px 14px;
-  box-shadow: 0 8px 36px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.7), 0 0 1px rgba(255, 255, 255, 0.2);
   transition: border-color 200ms ease, box-shadow 200ms ease;
 }
 
 .ashvi-chat-console:focus-within {
-  border-color: rgba(212, 175, 55, 0.45);
-  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6), 0 0 16px rgba(212, 175, 55, 0.15);
+  border-color: rgba(212, 175, 55, 0.5);
+  box-shadow: 0 10px 44px rgba(0, 0, 0, 0.75), 0 0 20px rgba(212, 175, 55, 0.2);
 }
 
 .ashvi-console-input-row {

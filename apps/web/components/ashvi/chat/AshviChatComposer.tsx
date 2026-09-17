@@ -3,6 +3,8 @@
 import { ChangeEvent, FormEvent, KeyboardEvent, useRef, useState } from "react";
 import { Mic, Paperclip, Send, Square } from "lucide-react";
 import { VoiceState } from "@/lib/use-ashvi-voice";
+import { AshviDailyTasks } from "./AshviDailyTasks";
+import { AshviChatActions } from "./AshviChatActions";
 
 interface Props {
   onSendMessage: (content: string) => void;
@@ -11,6 +13,7 @@ interface Props {
   voiceState?: VoiceState;
   onToggleVoice?: () => void;
   onInterrupt?: () => void;
+  showActions?: boolean;
 }
 
 export function AshviChatComposer({
@@ -20,6 +23,7 @@ export function AshviChatComposer({
   voiceState = "idle",
   onToggleVoice,
   onInterrupt,
+  showActions = false,
 }: Props) {
   const [text, setText] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -69,6 +73,23 @@ export function AshviChatComposer({
         aria-hidden="true"
       />
 
+      {showActions && (
+        <div className="ashvi-composer-top-stack">
+          {/* 1. Compact [ Tasks Today ] Button situated above the action buttons */}
+          <div className="ashvi-tasks-trigger-container">
+            <AshviDailyTasks />
+          </div>
+
+          {/* 2. Four Action Buttons directly above single composer */}
+          <AshviChatActions
+            onSendMessage={onSendMessage}
+            onUploadFile={onUploadFile}
+            onToggleVoice={onToggleVoice}
+          />
+        </div>
+      )}
+
+      {/* 3. ONLY ONE UNIVERSAL SEARCH / COMPOSER */}
       <div className="ashvi-chat-console">
         <div className="ashvi-console-input-row">
           {/* File Attachment Tool */}
