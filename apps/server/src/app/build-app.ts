@@ -35,7 +35,19 @@ export function buildApp(
     trustProxy: true,
     logger: {
       level: environment.ASHVI_LOG_LEVEL,
-      redact: ["req.headers.authorization", "req.headers.cookie", "req.headers.x-ashvi-proxy-key", "req.body.password", "req.body.code", "req.body.apiKey"],
+      redact: [
+        "req.headers.authorization",
+        "req.headers.cookie",
+        "req.headers.x-ashvi-proxy-key",
+        "req.body.password",
+        "req.body.code",
+        "req.body.apiKey",
+        "req.body.token",
+        "req.query.key",
+        "req.query.apiKey",
+        "*.apiKey",
+        "*.password",
+      ],
     },
   });
 

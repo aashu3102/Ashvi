@@ -317,7 +317,7 @@ describe("GET /health/providers — Zero Secret Leakage", () => {
     const testEnv = loadEnvironment({
       NODE_ENV: "test",
       DATABASE_URL: "postgresql://test_user:super_secret_password_123@localhost:5432/test_db",
-      GEMINI_API_KEY: "AIzaSySecretApiKeyThatMustNeverBeLeakedInApiResponses",
+      GEMINI_API_KEY: "mock_test_token_never_leak_9876543210",
       ASHVI_LOG_LEVEL: "silent",
       GOOGLE_SEARCH_ENABLED: "true",
       LOCAL_QWEN_ENABLED: "true",
@@ -341,8 +341,7 @@ describe("GET /health/providers — Zero Secret Leakage", () => {
       // STRICT ZERO SECRET LEAKAGE VERIFICATION:
       const rawResponseText = response.payload;
       expect(rawResponseText).not.toContain("super_secret_password_123");
-      expect(rawResponseText).not.toContain("AIzaSySecretApiKeyThatMustNeverBeLeakedInApiResponses");
-      expect(rawResponseText).not.toContain("AIza");
+      expect(rawResponseText).not.toContain("mock_test_token_never_leak_9876543210");
       expect(rawResponseText).not.toContain("apiKey");
       expect(rawResponseText).not.toContain("password");
     } finally {
