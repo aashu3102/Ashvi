@@ -53,6 +53,55 @@ export function clearAuthToken() {
   }
 }
 
+export function getCachedUser(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return localStorage.getItem("ashvi_user");
+  } catch {
+    return null;
+  }
+}
+
+export function setCachedUser(name: string) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem("ashvi_user", name);
+  } catch {
+    // ignore
+  }
+}
+
+export function clearCachedUser() {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.removeItem("ashvi_user");
+    localStorage.removeItem("ashvi_daily_tasks_v1");
+  } catch {
+    // ignore
+  }
+}
+
+export async function logoutSession(): Promise<void> {
+  const base = getApiBaseUrl();
+  try {
+    await fetch(`${base}/api/auth/logout`, {
+      method: "POST",
+      credentials: "include",
+      headers: getAuthHeaders(),
+    });
+  } catch (err) {
+    console.error("Logout request error:", err);
+  } finally {
+    clearAuthToken();
+    clearCachedUser();
+    try {
+      sessionStorage.clear();
+    } catch {
+      // ignore
+    }
+  }
+}
+
 export function getAuthHeaders(extra: Record<string, string> = {}): Record<string, string> {
   const token = getAuthToken();
   return {

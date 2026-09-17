@@ -25,24 +25,18 @@ export function AshviChatBackground({ forcedTimeOfDay }: Props) {
   const currentTime = forcedTimeOfDay || localTime;
   const activeTheme = TIME_THEMES[currentTime];
 
-  const allTimes: TimeOfDay[] = ["morning", "afternoon", "evening", "night"];
-
   return (
     <div className="ashvi-chat-bg-container" aria-hidden="true">
-      {/* Background Images with smooth opacity crossfade */}
-      {allTimes.map((tod) => {
-        const theme = TIME_THEMES[tod];
-        const isActive = tod === currentTime;
-        return (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            key={tod}
-            src={theme.imageSrc}
-            alt=""
-            className={`ashvi-chat-bg-img ${isActive ? "active" : "inactive"}`}
-          />
-        );
-      })}
+      {/* High-fidelity single active background image */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        key={currentTime}
+        src={activeTheme.imageSrc}
+        alt=""
+        className="ashvi-chat-bg-img active"
+        decoding="async"
+        fetchPriority="high"
+      />
 
       {/* Atmospheric lighting and radial vignette */}
       <div className="ashvi-chat-atmosphere" />

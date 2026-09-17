@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { AuthenticationEnvironment } from "./AuthenticationEnvironment";
 import { AshviBrandPanel } from "./AshviBrandPanel";
 import { SecureAccessCard } from "./SecureAccessCard";
-import { getApiBaseUrl, getAuthHeaders, clearAuthToken, setAuthToken } from "@/lib/api";
+import { getApiBaseUrl, getAuthHeaders, setAuthToken } from "@/lib/api";
 import "./auth.css";
 
 type LoginState = "checking" | "locked" | "login" | "unlocking" | "authenticated";

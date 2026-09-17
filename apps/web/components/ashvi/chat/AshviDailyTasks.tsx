@@ -7,6 +7,7 @@ import {
   DailyTask,
   deleteDailyTask,
   fetchDailyTasks,
+  getLocalTasks,
   toggleDailyTask,
 } from "@/lib/task-client";
 
@@ -15,10 +16,10 @@ interface Props {
 }
 
 export function AshviDailyTasks({ className = "" }: Props) {
-  const [tasks, setTasks] = useState<DailyTask[]>([]);
+  const [tasks, setTasks] = useState<DailyTask[]>(() => getLocalTasks());
   const [newText, setNewText] = useState("");
   const [isAdding, setIsAdding] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => getLocalTasks().length === 0);
   const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {

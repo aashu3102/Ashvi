@@ -12,7 +12,7 @@ export interface DailyTask {
 
 const STORAGE_KEY = "ashvi_daily_tasks_v1";
 
-function getLocalTasks(): DailyTask[] {
+export function getLocalTasks(): DailyTask[] {
   if (typeof window === "undefined") return [];
   try {
     const raw = localStorage.getItem(STORAGE_KEY);

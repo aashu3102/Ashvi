@@ -34,6 +34,7 @@ interface Props {
   onSendMessage: (text: string) => void;
   onNewSpace: () => void;
   onUploadFile?: (file: File) => void;
+  onLogout?: () => void;
 }
 
 export function AshviChatView({
@@ -58,6 +59,7 @@ export function AshviChatView({
   onSendMessage,
   onNewSpace,
   onUploadFile,
+  onLogout,
 }: Props) {
   const [timeOfDay, setTimeOfDay] = useState<TimeOfDay>(() => getTimeOfDay());
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
@@ -84,6 +86,7 @@ export function AshviChatView({
         userName={userName}
         className={isMobileSidebarOpen ? "mobile-open" : ""}
         onCloseMobileDrawer={() => setIsMobileSidebarOpen(false)}
+        onLogout={onLogout}
       />
 
       {/* Mobile Backdrop Overlay */}

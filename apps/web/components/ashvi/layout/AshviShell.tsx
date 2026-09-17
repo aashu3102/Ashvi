@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import { AshviBackground } from "./AshviBackground";
 import { LeftSidebar } from "../sidebar/LeftSidebar";
 import { TopHeader } from "../top-navigation/TopHeader";
@@ -8,22 +9,32 @@ import { HeroSection } from "../hero/HeroSection";
 import { CapabilityCardsGrid } from "../capability-cards/CapabilityCardsGrid";
 import { MainInputBar } from "../command-bar/MainInputBar";
 import { RightSidebar } from "../right-sidebar/RightSidebar";
-import { ActiveChatModal, ChatMessage } from "../conversation/ActiveChatModal";
-import { AshviChatView } from "../chat/AshviChatView";
+import type { ChatMessage } from "../conversation/ActiveChatModal";
 import { parseAshviSseLine } from "@/lib/sse";
 import { getApiBaseUrl, getAuthHeaders } from "@/lib/api";
 import { useAshviVoice } from "@/lib/use-ashvi-voice";
 import "../ashvi.css";
 
+// Dynamically code-split heavy chat components to optimize initial dashboard bundle
+const AshviChatView = dynamic(
+  () => import("../chat/AshviChatView").then((mod) => mod.AshviChatView),
+  { ssr: false }
+);
+
+const ActiveChatModal = dynamic(
+  () => import("../conversation/ActiveChatModal").then((mod) => mod.ActiveChatModal),
+  { ssr: false }
+);
+
 type Conversation = { id: string; title: string };
 
 interface AshviShellProps {
   userName?: string | null;
+  onLogout?: () => void;
 }
 
-export function AshviShell({ userName: initialUserName }: AshviShellProps = {}) {
+export function AshviShell({ userName = null, onLogout }: AshviShellProps = {}) {
   const base = getApiBaseUrl();
-  const [userName, setUserName] = useState<string | null>(initialUserName || null);
   const [activeTab, setActiveTab] = useState("home");
   const [selectedCapability, setSelectedCapability] = useState("chat");
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -59,17 +70,6 @@ export function AshviShell({ userName: initialUserName }: AshviShellProps = {}) 
     onError: (err) => setError(err),
   });
 
-  // Fetch session username if not provided
-  useEffect(() => {
-    if (!userName) {
-      fetch(`${base}/api/auth/session`, { credentials: "include", cache: "no-store", headers: getAuthHeaders() })
-        .then((res) => (res.ok ? res.json() : null))
-        .then((data) => {
-          if (data?.user?.name) setUserName(data.user.name);
-        })
-        .catch(() => {});
-    }
-  }, [base, userName]);
 
   // Load conversations on mount
   useEffect(() => {
@@ -319,6 +319,7 @@ export function AshviShell({ userName: initialUserName }: AshviShellProps = {}) 
         onSendMessage={handleSendMessage}
         onNewSpace={handleNewSpace}
         onUploadFile={handleUploadFile}
+        onLogout={onLogout}
       />
     );
   }
@@ -351,6 +352,8 @@ export function AshviShell({ userName: initialUserName }: AshviShellProps = {}) 
             openConversation(id, found?.title);
             setActiveTab("chat");
           }}
+          userName={userName}
+          onLogout={onLogout}
         />
 
         {/* Center Workspace */}
@@ -397,6 +400,8 @@ export function AshviShell({ userName: initialUserName }: AshviShellProps = {}) 
           isListening={voice.isListening}
           onToggleVoice={voice.toggleListening}
           onUploadFile={handleUploadFile}
+          userName={userName}
+          onLogout={onLogout}
         />
       </div>
 

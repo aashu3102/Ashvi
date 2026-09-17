@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowLeft, Check, Edit3, MessageSquare, Plus, Search, Trash2, X } from "lucide-react";
+import { ArrowLeft, Check, Edit3, MessageSquare, Plus, Search, Trash2, X, LogOut } from "lucide-react";
 import type { ConversationItem } from "./AshviConversationDrawer";
 
 interface Props {
@@ -15,6 +15,7 @@ interface Props {
   userName?: string | null;
   className?: string;
   onCloseMobileDrawer?: () => void;
+  onLogout?: () => void;
 }
 
 export function AshviChatSidebar({
@@ -28,11 +29,13 @@ export function AshviChatSidebar({
   userName,
   className = "",
   onCloseMobileDrawer,
+  onLogout,
 }: Props) {
   const [searchQuery, setSearchQuery] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
 
   const filteredConversations = conversations.filter((c) => {
     if (!searchQuery.trim()) return true;
@@ -264,8 +267,65 @@ export function AshviChatSidebar({
       </div>
 
       {/* Bottom User Area */}
-      <div className="ashvi-chat-sidebar-bottom">
-        <div className="ashvi-chat-user-pill">
+      <div className="ashvi-chat-sidebar-bottom" style={{ position: "relative" }}>
+        {/* Profile Popover Menu */}
+        {isProfileOpen && (
+          <>
+            <div
+              className="ashvi-profile-menu-backdrop"
+              onClick={() => setIsProfileOpen(false)}
+              aria-hidden="true"
+            />
+            <div
+              className="ashvi-profile-menu-popover"
+              style={{
+                position: "absolute",
+                bottom: "calc(100% + 8px)",
+                left: "12px",
+                right: "12px",
+              }}
+              role="menu"
+              aria-label="User Profile"
+            >
+              <div className="ashvi-profile-menu-header">
+                <div className="ashvi-chat-avatar" style={{ width: "26px", height: "26px", fontSize: "10px" }}>
+                  {displayName.substring(0, 2).toUpperCase()}
+                </div>
+                <div className="ashvi-profile-menu-meta">
+                  <span className="ashvi-profile-name">{displayName}</span>
+                  <span className="ashvi-profile-status">Authenticated Session</span>
+                </div>
+              </div>
+
+              <div className="ashvi-profile-menu-divider" />
+
+              {onLogout && (
+                <button
+                  type="button"
+                  className="ashvi-profile-menu-item logout"
+                  onClick={() => {
+                    setIsProfileOpen(false);
+                    onLogout();
+                  }}
+                  role="menuitem"
+                >
+                  <LogOut size={14} />
+                  <span>Logout</span>
+                </button>
+              )}
+            </div>
+          </>
+        )}
+
+        <div
+          className="ashvi-chat-user-pill"
+          onClick={() => setIsProfileOpen((prev) => !prev)}
+          role="button"
+          tabIndex={0}
+          title="Account profile & options"
+          aria-expanded={isProfileOpen}
+          style={{ cursor: "pointer" }}
+        >
           <div className="ashvi-chat-avatar">
             {displayName.substring(0, 2).toUpperCase()}
           </div>

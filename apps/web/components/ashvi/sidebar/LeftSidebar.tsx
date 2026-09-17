@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   Home,
   MessageSquare,
@@ -15,6 +16,7 @@ import {
   Settings,
   HelpCircle,
   ChevronRight,
+  LogOut,
 } from "lucide-react";
 
 interface Props {
@@ -23,6 +25,8 @@ interface Props {
   onNewSpace: () => void;
   recentSpaces?: Array<{ id: string; title: string }>;
   onSelectSpace?: (id: string) => void;
+  userName?: string | null;
+  onLogout?: () => void;
 }
 
 export function LeftSidebar({
@@ -31,7 +35,10 @@ export function LeftSidebar({
   onNewSpace,
   recentSpaces = [],
   onSelectSpace,
+  userName,
+  onLogout,
 }: Props) {
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
   const mainNav = [
     { key: "home", label: "Home", icon: Home },
     { key: "chat", label: "Chat", icon: MessageSquare },
@@ -138,16 +145,79 @@ export function LeftSidebar({
       </div>
 
       {/* Bottom User Area */}
-      <div className="ashvi-sidebar-bottom">
-        <div className="ashvi-user-pill" role="button" tabIndex={0}>
+      <div className="ashvi-sidebar-bottom" style={{ position: "relative" }}>
+        {/* Profile Popover Menu */}
+        {isProfileOpen && (
+          <>
+            <div
+              className="ashvi-profile-menu-backdrop"
+              onClick={() => setIsProfileOpen(false)}
+              aria-hidden="true"
+            />
+            <div className="ashvi-profile-menu-popover" role="menu" aria-label="User Profile">
+              <div className="ashvi-profile-menu-header">
+                <div className="ashvi-avatar">
+                  {userName
+                    ? userName.trim().slice(0, 2).toUpperCase()
+                    : "AS"}
+                </div>
+                <div className="ashvi-profile-menu-meta">
+                  <span className="ashvi-profile-name">
+                    {userName ? userName.trim() : "Aashu Singh"}
+                  </span>
+                  <span className="ashvi-profile-status">Authenticated Session</span>
+                </div>
+              </div>
+
+              <div className="ashvi-profile-menu-divider" />
+
+              {onLogout && (
+                <button
+                  type="button"
+                  className="ashvi-profile-menu-item logout"
+                  onClick={() => {
+                    setIsProfileOpen(false);
+                    onLogout();
+                  }}
+                  role="menuitem"
+                >
+                  <LogOut size={14} />
+                  <span>Logout</span>
+                </button>
+              )}
+            </div>
+          </>
+        )}
+
+        <div
+          className="ashvi-user-pill"
+          role="button"
+          tabIndex={0}
+          onClick={() => setIsProfileOpen((prev) => !prev)}
+          title="Account profile & options"
+          aria-expanded={isProfileOpen}
+        >
           <div className="ashvi-user-info">
-            <div className="ashvi-avatar">AS</div>
+            <div className="ashvi-avatar">
+              {userName
+                ? userName.trim().slice(0, 2).toUpperCase()
+                : "AS"}
+            </div>
             <div className="ashvi-user-text">
-              <span className="ashvi-user-name">Aashu Singh</span>
+              <span className="ashvi-user-name">
+                {userName ? userName.trim() : "Aashu Singh"}
+              </span>
               <span className="ashvi-user-sub">Always Forward</span>
             </div>
           </div>
-          <ChevronRight size={14} className="ashvi-user-chevron" />
+          <ChevronRight
+            size={14}
+            className="ashvi-user-chevron"
+            style={{
+              transform: isProfileOpen ? "rotate(-90deg)" : "none",
+              transition: "transform 180ms ease",
+            }}
+          />
         </div>
 
         <div className="ashvi-secondary-nav">

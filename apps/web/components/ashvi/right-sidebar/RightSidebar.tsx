@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import {
   Search,
   Bell,
@@ -11,6 +11,7 @@ import {
   Mic,
   Image as ImageIcon,
   Globe,
+  LogOut,
 } from "lucide-react";
 
 interface Props {
@@ -18,6 +19,8 @@ interface Props {
   isListening?: boolean;
   onToggleVoice?: () => void;
   onUploadFile?: (file: File) => void;
+  userName?: string | null;
+  onLogout?: () => void;
 }
 
 export function RightSidebar({
@@ -25,8 +28,14 @@ export function RightSidebar({
   isListening = true,
   onToggleVoice,
   onUploadFile,
+  userName,
+  onLogout,
 }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+
+  const cleanName = userName ? userName.trim().split(" ")[0] : "Aashu";
+  const initials = cleanName.slice(0, 2).toUpperCase();
 
   return (
     <aside className="ashvi-right-sidebar" aria-label="Activity and tools">
@@ -41,7 +50,7 @@ export function RightSidebar({
       />
 
       {/* Top Utility Icons */}
-      <div className="ashvi-right-top-utilities">
+      <div className="ashvi-right-top-utilities" style={{ position: "relative" }}>
         <div className="ashvi-utility-icons-group">
           <button type="button" className="ashvi-utility-btn" aria-label="Search">
             <Search size={15} />
@@ -54,14 +63,81 @@ export function RightSidebar({
           </button>
         </div>
 
-        <div className="ashvi-user-pill" style={{ padding: "4px 8px" }}>
+        {/* Profile Popover Menu */}
+        {isProfileOpen && (
+          <>
+            <div
+              className="ashvi-profile-menu-backdrop"
+              onClick={() => setIsProfileOpen(false)}
+              aria-hidden="true"
+            />
+            <div
+              className="ashvi-profile-menu-popover"
+              style={{
+                position: "absolute",
+                top: "calc(100% + 8px)",
+                right: "0",
+                left: "auto",
+                bottom: "auto",
+                minWidth: "180px",
+              }}
+              role="menu"
+              aria-label="User Profile"
+            >
+              <div className="ashvi-profile-menu-header">
+                <div className="ashvi-avatar" style={{ width: "24px", height: "24px", fontSize: "10px" }}>
+                  {initials}
+                </div>
+                <div className="ashvi-profile-menu-meta">
+                  <span className="ashvi-profile-name">{cleanName}</span>
+                  <span className="ashvi-profile-status">Active Session</span>
+                </div>
+              </div>
+
+              <div className="ashvi-profile-menu-divider" />
+
+              {onLogout && (
+                <button
+                  type="button"
+                  className="ashvi-profile-menu-item logout"
+                  onClick={() => {
+                    setIsProfileOpen(false);
+                    onLogout();
+                  }}
+                  role="menuitem"
+                >
+                  <LogOut size={14} />
+                  <span>Logout</span>
+                </button>
+              )}
+            </div>
+          </>
+        )}
+
+        <div
+          className="ashvi-user-pill"
+          style={{ padding: "4px 8px", cursor: "pointer" }}
+          onClick={() => setIsProfileOpen((prev) => !prev)}
+          role="button"
+          tabIndex={0}
+          title="Account profile & options"
+          aria-expanded={isProfileOpen}
+        >
           <div className="ashvi-user-info">
             <div className="ashvi-avatar" style={{ width: "24px", height: "24px", fontSize: "9px" }}>
-              AS
+              {initials}
             </div>
-            <span style={{ fontSize: "11px", fontWeight: 500 }}>Aashu</span>
+            <span style={{ fontSize: "11px", fontWeight: 500 }}>{cleanName}</span>
           </div>
-          <ChevronDown size={12} style={{ color: "#8fa0b5", marginLeft: "6px" }} />
+          <ChevronDown
+            size={12}
+            style={{
+              color: "#8fa0b5",
+              marginLeft: "6px",
+              transform: isProfileOpen ? "rotate(180deg)" : "none",
+              transition: "transform 180ms ease",
+            }}
+          />
         </div>
       </div>
 
