@@ -3,7 +3,11 @@ import { resolve } from "node:path";
 import { buildApp } from "./app/build-app.js";
 import { loadEnvironment } from "./config/env.js";
 
+dotenv.config();
+dotenv.config({ path: resolve(process.cwd(), ".env") });
 dotenv.config({ path: resolve(process.cwd(), "../../.env") });
+dotenv.config({ path: resolve(process.cwd(), "../.env") });
+dotenv.config({ path: resolve(process.cwd(), ".env.local") });
 const environment = loadEnvironment();
 const app = buildApp(environment);
 
