@@ -37,14 +37,10 @@ async function ensureIdentity(db: PrismaClient, identity: IdentitySlot) {
 export async function initializeIdentities(db: PrismaClient, environment: Environment) {
   const identities = identitySlots(environment);
   const names = identities.map((identity) => identity.name);
-  const codeHashes = identities.map((identity) => identity.codeHash);
-  const passwordHashes = identities.map((identity) => identity.passwordHash);
   if (
     !environment.ASHVI_SESSION_SECRET ||
     identities.some((identity) => !identity.name || !identity.codeHash || !identity.passwordHash) ||
-    new Set(names).size !== identities.length ||
-    codeHashes[0] === codeHashes[1] ||
-    passwordHashes[0] === passwordHashes[1]
+    new Set(names).size !== identities.length
   ) {
     throw new Error("Two complete Ashvi credential slots are required before the server can start.");
   }
