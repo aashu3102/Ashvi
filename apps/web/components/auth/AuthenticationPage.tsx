@@ -62,7 +62,7 @@ export function AuthenticationPage({ onSuccess }: { onSuccess?: () => void }) {
         credentials: "include",
         cache: "no-store",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ username: username.trim(), code, password }),
+        body: JSON.stringify({ username: username.trim(), code: code.trim(), password }),
       });
 
       const payload = (await response.json().catch(() => null)) as {
