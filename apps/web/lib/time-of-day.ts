@@ -1,4 +1,10 @@
-export type TimeOfDay = "morning" | "afternoon" | "evening" | "night";
+import {
+  determinePeriod,
+  periodToGreeting,
+  DayPeriod,
+} from "./time-detector";
+
+export type TimeOfDay = DayPeriod;
 
 export interface TimeTheme {
   timeOfDay: TimeOfDay;
@@ -36,43 +42,22 @@ export const TIME_THEMES: Record<TimeOfDay, TimeTheme> = {
 
 /**
  * Returns current time of day according to client's local hour:
- * - 05:00 – 11:59: Morning   -> "Good morning"
- * - 12:00 – 16:59: Afternoon -> "Good afternoon"
- * - 17:00 – 20:59: Evening   -> "Good evening"
- * - 21:00 – 04:59: Night     -> "Good night"
+ * Unified delegation to determinePeriod in time-detector.
  */
 export function getTimeOfDayFromHour(hour: number): TimeOfDay {
-  if (hour >= 5 && hour < 12) {
-    return "morning";
-  }
-  if (hour >= 12 && hour < 17) {
-    return "afternoon";
-  }
-  if (hour >= 17 && hour < 21) {
-    return "evening";
-  }
-  return "night";
+  return determinePeriod(hour);
 }
 
 export function getTimeOfDay(date: Date = new Date()): TimeOfDay {
-  return getTimeOfDayFromHour(date.getHours());
+  return determinePeriod(date.getHours());
 }
 
 export function getGreetingWord(timeOfDay: TimeOfDay): string {
-  switch (timeOfDay) {
-    case "morning":
-      return "Good morning";
-    case "afternoon":
-      return "Good afternoon";
-    case "evening":
-      return "Good evening";
-    case "night":
-      return "Good night";
-  }
+  return periodToGreeting(timeOfDay);
 }
 
 export function getGreetingWordFromHour(hour: number): string {
-  return getGreetingWord(getTimeOfDayFromHour(hour));
+  return periodToGreeting(determinePeriod(hour));
 }
 
 /**
@@ -80,7 +65,7 @@ export function getGreetingWordFromHour(hour: number): string {
  * Guaranteed client-side evaluation without UTC or server timezone artifacts.
  */
 export function getLocalGreetingWord(): string {
-  return getGreetingWordFromHour(new Date().getHours());
+  return periodToGreeting(determinePeriod(new Date().getHours()));
 }
 
 /**
@@ -88,7 +73,7 @@ export function getLocalGreetingWord(): string {
  * "Good morning, Aashu." or "Good night, Shambhavi."
  */
 export function getGreeting(timeOfDay: TimeOfDay, name?: string | null): string {
-  const greetingWord = getGreetingWord(timeOfDay);
+  const greetingWord = periodToGreeting(timeOfDay);
   const cleanName = name ? name.trim().split(" ")[0] : "";
   if (cleanName) {
     return `${greetingWord}, ${cleanName}.`;

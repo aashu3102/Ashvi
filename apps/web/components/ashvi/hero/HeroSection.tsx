@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { AshviCoreOrb } from "../core/AshviCoreOrb";
-import { getLocalGreetingWord } from "@/lib/time-of-day";
+import { useTimeDetector } from "@/lib/time-detector";
 import { getApiBaseUrl, getAuthHeaders } from "@/lib/api";
 
 interface Props {
@@ -12,33 +12,9 @@ interface Props {
 
 export function HeroSection({ onSelectTag, userName }: Props) {
   const tags = ["Ideas", "Knowledge", "Projects", "Growth", "A Better You"];
-  // Guaranteed zero bad fallbacks during SSR/prerender - calculated on browser mount
-  const [greetingWord, setGreetingWord] = useState<string>("");
-  const [dateStr, setDateStr] = useState<string>("");
+  // Single source of truth for time and greeting detection (guaranteed zero SSR fallback leak)
+  const { isReady, greetingWord, dateStr } = useTimeDetector();
   const [fetchedName, setFetchedName] = useState<string>("");
-
-  // Calculate browser/device local time immediately upon client mount and update every 15s
-  useEffect(() => {
-    const updateLocalClock = () => {
-      // Direct inquiry into user's local browser clock
-      setGreetingWord(getLocalGreetingWord());
-
-      setDateStr(
-        new Date().toLocaleDateString("en-US", {
-          weekday: "short",
-          day: "numeric",
-          month: "short",
-          year: "numeric",
-        }).toUpperCase()
-      );
-    };
-
-    // Execute immediately on browser mount
-    updateLocalClock();
-
-    const timer = setInterval(updateLocalClock, 15000);
-    return () => clearInterval(timer);
-  }, []);
 
   // Dynamically resolve authenticated operator name if not passed via props
   useEffect(() => {
@@ -64,7 +40,7 @@ export function HeroSection({ onSelectTag, userName }: Props) {
           {dateStr}
         </div>
         <h2 className="ashvi-hero-greeting" suppressHydrationWarning>
-          {greetingWord ? `${greetingWord},` : ""}<br />
+          {isReady && greetingWord ? `${greetingWord},` : ""}<br />
           {displayName}.
         </h2>
         <p className="ashvi-hero-question">What are we creating today?</p>
