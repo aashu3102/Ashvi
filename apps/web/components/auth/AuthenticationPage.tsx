@@ -68,7 +68,11 @@ export function AuthenticationPage({ onSuccess }: { onSuccess?: () => void }) {
       setPassword("");
 
       if (!response.ok) {
-        const denied = payload?.error?.message ?? "Access could not be verified.";
+        if (response.status >= 500) {
+          setMessage("The secure core server is offline or unreachable from this host.");
+          return;
+        }
+        const denied = payload?.error?.message ?? "Access could not be verified. Please check your secret code and password.";
         setMessage(denied);
         if (response.status === 429) {
           setState("locked");

@@ -10,7 +10,7 @@ interface Props {
 
 const PRESET_IDENTITIES = [
   { name: "Aashu Singh", tag: "Primary Owner" },
-  { name: "Authorized Operator", tag: "Secure Node" },
+  { name: "Shambhavi Singh", tag: "Authorized Operator" },
 ];
 
 export function IdentitySelector({ value, onChange, disabled }: Props) {
