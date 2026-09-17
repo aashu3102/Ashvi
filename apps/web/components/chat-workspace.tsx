@@ -1,7 +1,7 @@
 "use client";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { AshviCore } from "./ashvi-core";
-import { getApiBaseUrl } from "@/lib/api";
+import { getApiBaseUrl, getAuthHeaders, clearAuthToken } from "@/lib/api";
 
 type TabKey = "chat" | "documents" | "memory";
 type Conversation = { id: string; title: string };
@@ -44,9 +44,9 @@ export function ChatWorkspace() {
   const loadPanels = async () => {
     try {
       const [conversationsResponse, documentsResponse, memoryResponse] = await Promise.all([
-        fetch(`${base}/api/conversations`, { credentials: "include" }),
-        fetch(`${base}/api/documents`, { credentials: "include" }),
-        fetch(`${base}/api/memory`, { credentials: "include" }),
+        fetch(`${base}/api/conversations`, { credentials: "include", headers: getAuthHeaders() }),
+        fetch(`${base}/api/documents`, { credentials: "include", headers: getAuthHeaders() }),
+        fetch(`${base}/api/memory`, { credentials: "include", headers: getAuthHeaders() }),
       ]);
 
       if (conversationsResponse.ok) {
@@ -69,7 +69,7 @@ export function ChatWorkspace() {
   useEffect(() => {
     void loadPanels().catch(() => setError("Could not load Ashvi workspace data."));
     const refresh = window.setInterval(() => {
-      void fetch(`${base}/api/documents`, { credentials: "include" })
+      void fetch(`${base}/api/documents`, { credentials: "include", headers: getAuthHeaders() })
         .then((response) => response.ok ? response.json().then((data) => Array.isArray(data) ? data : []) : [])
         .then(setDocuments)
         .catch(() => undefined);
@@ -79,7 +79,7 @@ export function ChatWorkspace() {
   }, []);
 
   const loadConversation = async (conversationId: string) => {
-    const response = await fetch(`${base}/api/conversations/${conversationId}`, { credentials: "include" });
+    const response = await fetch(`${base}/api/conversations/${conversationId}`, { credentials: "include", headers: getAuthHeaders() });
     if (!response.ok) {
       throw new Error("Ashvi could not open that thread.");
     }
@@ -110,7 +110,7 @@ export function ChatWorkspace() {
       const response = await fetch(`${base}/api/conversations`, {
         method: "POST",
         credentials: "include",
-        headers: { "content-type": "application/json" },
+        headers: getAuthHeaders({ "content-type": "application/json" }),
         body: "{}",
       });
       if (!response.ok) throw new Error();
@@ -134,6 +134,7 @@ export function ChatWorkspace() {
       const response = await fetch(`${base}/api/documents/upload`, {
         method: "POST",
         credentials: "include",
+        headers: getAuthHeaders(),
         body: formData,
       });
 
@@ -166,7 +167,7 @@ export function ChatWorkspace() {
       const response = await fetch(`${base}/api/memory`, {
         method: "POST",
         credentials: "include",
-        headers: { "content-type": "application/json" },
+        headers: getAuthHeaders({ "content-type": "application/json" }),
         body: JSON.stringify({
           content,
           category: "FACT",
@@ -193,7 +194,11 @@ export function ChatWorkspace() {
 
   const deleteMemory = async (memoryId: string) => {
     try {
-      const response = await fetch(`${base}/api/memory/${memoryId}`, { method: "DELETE", credentials: "include" });
+      const response = await fetch(`${base}/api/memory/${memoryId}`, {
+        method: "DELETE",
+        credentials: "include",
+        headers: getAuthHeaders(),
+      });
       if (!response.ok) throw new Error("Memory could not be removed.");
       setMemoryItems((current) => current.filter((entry) => entry.id !== memoryId));
     } catch (err) {
@@ -206,7 +211,7 @@ export function ChatWorkspace() {
       const response = await fetch(`${base}/api/memory/${entry.id}`, {
         method: "PATCH",
         credentials: "include",
-        headers: { "content-type": "application/json" },
+        headers: getAuthHeaders({ "content-type": "application/json" }),
         body: JSON.stringify({
           content: entry.content,
           category: entry.category,
@@ -227,7 +232,7 @@ export function ChatWorkspace() {
       const response = await fetch(`${base}/api/memory`, {
         method: "POST",
         credentials: "include",
-        headers: { "content-type": "application/json" },
+        headers: getAuthHeaders({ "content-type": "application/json" }),
         body: JSON.stringify(suggestion),
       });
       if (!response.ok) throw new Error("Suggestion could not be saved.");
@@ -241,7 +246,11 @@ export function ChatWorkspace() {
 
   const deleteDocument = async (documentId: string) => {
     try {
-      const response = await fetch(`${base}/api/documents/${documentId}`, { method: "DELETE", credentials: "include" });
+      const response = await fetch(`${base}/api/documents/${documentId}`, {
+        method: "DELETE",
+        credentials: "include",
+        headers: getAuthHeaders(),
+      });
       if (!response.ok) throw new Error("Document could not be removed.");
       setDocuments((current) => current.filter((entry) => entry.id !== documentId));
     } catch (err) {
@@ -260,7 +269,10 @@ export function ChatWorkspace() {
     setPreviewText("");
     setPreviewLoading(true);
     try {
-      const response = await fetch(`${base}/api/documents/${documentId}/preview`, { credentials: "include" });
+      const response = await fetch(`${base}/api/documents/${documentId}/preview`, {
+        credentials: "include",
+        headers: getAuthHeaders(),
+      });
       if (!response.ok) throw new Error("Preview is not available yet.");
       const data = await response.json() as { preview?: string };
       setPreviewText(data.preview ?? "No extracted text is available yet.");
@@ -298,7 +310,7 @@ export function ChatWorkspace() {
       const response = await fetch(`${base}/api/voice/synthesize`, {
         method: "POST",
         credentials: "include",
-        headers: { "content-type": "application/json" },
+        headers: getAuthHeaders({ "content-type": "application/json" }),
         body: JSON.stringify({ text: content, language: voiceLanguage }),
         signal: controller.signal,
       });
@@ -355,6 +367,7 @@ export function ChatWorkspace() {
             const response = await fetch(`${base}/api/voice/transcribe?language=${voiceLanguage}`, {
               method: "POST",
               credentials: "include",
+              headers: getAuthHeaders(),
               body: formData,
             });
             const payload = await response.json().catch(() => null) as { transcript?: string; error?: { message?: string } } | null;
@@ -376,7 +389,12 @@ export function ChatWorkspace() {
   };
 
   const logout = async () => {
-    await fetch(`${base}/api/auth/logout`, { method: "POST", credentials: "include" }).catch(() => undefined);
+    clearAuthToken();
+    await fetch(`${base}/api/auth/logout`, {
+      method: "POST",
+      credentials: "include",
+      headers: getAuthHeaders(),
+    }).catch(() => undefined);
     window.location.reload();
   };
 
@@ -395,7 +413,9 @@ export function ChatWorkspace() {
 
     try {
       const response = await fetch(`${base}/api/conversations/${id}/messages/stream`, {
-        method: "POST",        credentials: "include",        headers: { "content-type": "application/json" },
+        method: "POST",
+        credentials: "include",
+        headers: getAuthHeaders({ "content-type": "application/json" }),
         body: JSON.stringify({ content }),
         signal: controller.signal,
       });

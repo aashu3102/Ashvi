@@ -10,7 +10,7 @@ import { MainInputBar } from "../command-bar/MainInputBar";
 import { RightSidebar } from "../right-sidebar/RightSidebar";
 import { ActiveChatModal, ChatMessage } from "../conversation/ActiveChatModal";
 import { parseAshviSseLine } from "@/lib/sse";
-import { getApiBaseUrl } from "@/lib/api";
+import { getApiBaseUrl, getAuthHeaders } from "@/lib/api";
 import { useAshviVoice } from "@/lib/use-ashvi-voice";
 import "../ashvi.css";
 
@@ -55,7 +55,7 @@ export function AshviShell() {
 
   // Load conversations on mount
   useEffect(() => {
-    fetch(`${base}/api/conversations`, { credentials: "include" })
+    fetch(`${base}/api/conversations`, { credentials: "include", headers: getAuthHeaders() })
       .then((res) => (res.ok ? res.json() : []))
       .then((data) => {
         if (Array.isArray(data)) setConversations(data);
@@ -69,7 +69,7 @@ export function AshviShell() {
       const res = await fetch(`${base}/api/conversations`, {
         method: "POST",
         credentials: "include",
-        headers: { "content-type": "application/json" },
+        headers: getAuthHeaders({ "content-type": "application/json" }),
         body: JSON.stringify({}),
       });
       if (!res.ok) throw new Error("Ashvi could not create a conversation.");
@@ -92,7 +92,10 @@ export function AshviShell() {
     setError("");
 
     try {
-      const res = await fetch(`${base}/api/conversations/${id}`, { credentials: "include" });
+      const res = await fetch(`${base}/api/conversations/${id}`, {
+        credentials: "include",
+        headers: getAuthHeaders(),
+      });
       if (res.ok) {
         const data = await res.json();
         if (data && Array.isArray(data.messages)) {
@@ -113,7 +116,7 @@ export function AshviShell() {
         const res = await fetch(`${base}/api/conversations`, {
           method: "POST",
           credentials: "include",
-          headers: { "content-type": "application/json" },
+          headers: getAuthHeaders({ "content-type": "application/json" }),
           body: JSON.stringify({}),
         });
         if (!res.ok) throw new Error("Ashvi could not create a conversation.");
@@ -148,7 +151,7 @@ export function AshviShell() {
       const response = await fetch(`${base}/api/conversations/${currentId}/messages/stream`, {
         method: "POST",
         credentials: "include",
-        headers: { "content-type": "application/json" },
+        headers: getAuthHeaders({ "content-type": "application/json" }),
         body: JSON.stringify({ content: text }),
       });
 
@@ -217,6 +220,7 @@ export function AshviShell() {
       const response = await fetch(`${base}/api/documents/upload`, {
         method: "POST",
         credentials: "include",
+        headers: getAuthHeaders(),
         body: formData,
       });
       if (!response.ok) throw new Error("Document upload failed.");

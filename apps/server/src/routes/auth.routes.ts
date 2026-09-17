@@ -16,22 +16,27 @@ export async function authRoutes(app: FastifyInstance, options: { environment: E
     const body = loginSchema.parse(request.body);
     try {
       const result = await authenticate(app.prisma, options.environment, body.username, body.code, body.password, request.ip);
+      const origin = request.headers.origin;
+      const isCrossSite = Boolean(origin && !origin.includes("localhost") && !origin.includes("127.0.0.1"));
+      const isHttps = request.protocol === "https" || request.headers["x-forwarded-proto"] === "https" || isCrossSite;
       return reply.setCookie(cookieName, result.token, {
         httpOnly: true,
-        secure: options.environment.NODE_ENV === "production",
-        sameSite: "strict",
+        secure: isHttps || options.environment.NODE_ENV === "production",
+        sameSite: isCrossSite ? "none" : "lax",
         path: "/",
         maxAge: 8 * 60 * 60,
-      }).send({ user: result.user });
+      }).send({ user: result.user, token: result.token });
     } catch {
       return reply.code(401).send({ error: { code: "ACCESS_DENIED", message: "Access could not be verified." } });
     }
   });
 
   app.post("/api/auth/logout", async (request, reply) => {
-    const token = request.cookies[cookieName];
+    const authHeader = request.headers.authorization;
+    const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7).trim() : null;
+    const token = bearerToken || request.cookies[cookieName];
     if (token) await revokeSession(app.prisma, token, options.environment.ASHVI_SESSION_SECRET);
-    return reply.clearCookie(cookieName, { httpOnly: true, secure: options.environment.NODE_ENV === "production", sameSite: "strict", path: "/" }).code(204).send();
+    return reply.clearCookie(cookieName, { httpOnly: true, secure: true, sameSite: "none", path: "/" }).code(204).send();
   });
 
   app.get("/api/auth/session", async (request, reply) => {

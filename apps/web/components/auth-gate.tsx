@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { AuthenticationPage } from "./auth/AuthenticationPage";
 import { AshviShell } from "./ashvi/layout/AshviShell";
-import { getApiBaseUrl } from "@/lib/api";
+import { getApiBaseUrl, getAuthHeaders } from "@/lib/api";
 import "./auth/auth.css";
 
 export function AuthGate() {
@@ -11,7 +11,7 @@ export function AuthGate() {
 
   useEffect(() => {
     let isMounted = true;
-    fetch(`${getApiBaseUrl()}/api/auth/session`, { credentials: "include" })
+    fetch(`${getApiBaseUrl()}/api/auth/session`, { credentials: "include", headers: getAuthHeaders() })
       .then((res) => {
         if (isMounted) setAuthenticated(res.ok);
       })

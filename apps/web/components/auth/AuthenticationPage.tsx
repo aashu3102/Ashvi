@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { AuthenticationEnvironment } from "./AuthenticationEnvironment";
 import { AshviBrandPanel } from "./AshviBrandPanel";
 import { SecureAccessCard } from "./SecureAccessCard";
-import { getApiBaseUrl } from "@/lib/api";
+import { getApiBaseUrl, getAuthHeaders, setAuthToken } from "@/lib/api";
 import "./auth.css";
 
 type LoginState = "checking" | "locked" | "login" | "unlocking" | "authenticated";
@@ -21,7 +21,7 @@ export function AuthenticationPage({ onSuccess }: { onSuccess?: () => void }) {
 
   useEffect(() => {
     let isMounted = true;
-    fetch(`${getApiBaseUrl()}/api/auth/session`, { credentials: "include" })
+    fetch(`${getApiBaseUrl()}/api/auth/session`, { credentials: "include", headers: getAuthHeaders() })
       .then((response) => {
         if (!isMounted) return;
         if (response.ok) {
@@ -62,6 +62,7 @@ export function AuthenticationPage({ onSuccess }: { onSuccess?: () => void }) {
 
       const payload = (await response.json().catch(() => null)) as {
         error?: { message?: string };
+        token?: string;
       } | null;
 
       setCode("");
@@ -78,6 +79,10 @@ export function AuthenticationPage({ onSuccess }: { onSuccess?: () => void }) {
           setState("locked");
         }
         return;
+      }
+
+      if (payload?.token) {
+        setAuthToken(payload.token);
       }
 
       setState("unlocking");

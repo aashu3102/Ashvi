@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getApiBaseUrl } from "./api";
+import { getApiBaseUrl, getAuthHeaders } from "./api";
 
 export type VoiceState =
   | "idle"
@@ -116,7 +116,7 @@ export function useAshviVoice(options: UseAshviVoiceOptions = {}) {
       await fetch(`${base}/api/voice/interrupt`, {
         method: "POST",
         credentials: "include",
-        headers: { "content-type": "application/json" },
+        headers: getAuthHeaders({ "content-type": "application/json" }),
         body: JSON.stringify({ sessionId, reason: "user_spoke" }),
       });
     } catch {
@@ -197,6 +197,7 @@ export function useAshviVoice(options: UseAshviVoiceOptions = {}) {
           const response = await fetch(`${base}/api/voice/conversation/stream`, {
             method: "POST",
             credentials: "include",
+            headers: getAuthHeaders(),
             body: form,
           });
 
@@ -279,7 +280,7 @@ export function useAshviVoice(options: UseAshviVoiceOptions = {}) {
         const res = await fetch(`${base}/api/voice/synthesize`, {
           method: "POST",
           credentials: "include",
-          headers: { "content-type": "application/json" },
+          headers: getAuthHeaders({ "content-type": "application/json" }),
           body: JSON.stringify({ text, language: voiceLanguage }),
         });
 

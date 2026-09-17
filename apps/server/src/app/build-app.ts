@@ -43,7 +43,7 @@ export function buildApp(
 
   app.register(cors, {
     origin: (origin, callback) => {
-      if (!origin || allowedOrigins.has(origin) || origin.endsWith(".vercel.app") || /^https:\/\/[a-zA-Z0-9-]+-.*\.vercel\.app$/.test(origin)) {
+      if (!origin || allowedOrigins.has(origin) || origin.endsWith(".vercel.app") || /^https:\/\/[a-zA-Z0-9-]+-.*\.vercel\.app$/.test(origin) || origin.includes("trycloudflare.com")) {
         callback(null, true);
         return;
       }
@@ -51,7 +51,9 @@ export function buildApp(
       callback(new Error("CORS origin not allowed"), false);
     },
     credentials: true,
-    methods: ["GET", "POST", "PATCH", "DELETE"],
+    methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "Cookie", "Accept", "X-Requested-With"],
+    exposedHeaders: ["Set-Cookie"],
   });
   app.register(cookie);
 
