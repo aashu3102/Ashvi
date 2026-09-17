@@ -8,12 +8,22 @@ import "./auth/auth.css";
 
 export function AuthGate() {
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
+  const [userName, setUserName] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
     fetch(`${getApiBaseUrl()}/api/auth/session`, { credentials: "include", cache: "no-store", headers: getAuthHeaders() })
-      .then((res) => {
-        if (isMounted) setAuthenticated(res.ok);
+      .then(async (res) => {
+        if (!isMounted) return;
+        if (res.ok) {
+          const data = await res.json().catch(() => null);
+          if (isMounted) {
+            setUserName(data?.user?.name || null);
+            setAuthenticated(true);
+          }
+        } else {
+          setAuthenticated(false);
+        }
       })
       .catch(() => {
         if (isMounted) setAuthenticated(false);
@@ -37,7 +47,7 @@ export function AuthGate() {
   }
 
   if (authenticated) {
-    return <AshviShell />;
+    return <AshviShell userName={userName} />;
   }
 
   return <AuthenticationPage onSuccess={() => setAuthenticated(true)} />;

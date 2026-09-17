@@ -198,6 +198,7 @@ export class VoiceService {
           messages: options.messages ?? [],
           documentContext: docContext,
           memoryContext: memContext,
+          language,
         });
         responseText = task.result?.content ?? "I am here with you.";
         const orchDuration = Date.now() - orchStartTime;
@@ -323,6 +324,7 @@ export class VoiceService {
           messages: options.messages ?? [],
           documentContext: docContext,
           memoryContext: memContext,
+          language,
         });
         fullResponseText = task.result?.content ?? "I am here with you.";
         const orchDuration = Date.now() - orchStartTime;

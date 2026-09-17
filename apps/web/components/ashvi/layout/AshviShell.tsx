@@ -9,6 +9,7 @@ import { CapabilityCardsGrid } from "../capability-cards/CapabilityCardsGrid";
 import { MainInputBar } from "../command-bar/MainInputBar";
 import { RightSidebar } from "../right-sidebar/RightSidebar";
 import { ActiveChatModal, ChatMessage } from "../conversation/ActiveChatModal";
+import { AshviChatView } from "../chat/AshviChatView";
 import { parseAshviSseLine } from "@/lib/sse";
 import { getApiBaseUrl, getAuthHeaders } from "@/lib/api";
 import { useAshviVoice } from "@/lib/use-ashvi-voice";
@@ -16,8 +17,13 @@ import "../ashvi.css";
 
 type Conversation = { id: string; title: string };
 
-export function AshviShell() {
+interface AshviShellProps {
+  userName?: string | null;
+}
+
+export function AshviShell({ userName: initialUserName }: AshviShellProps = {}) {
   const base = getApiBaseUrl();
+  const [userName, setUserName] = useState<string | null>(initialUserName || null);
   const [activeTab, setActiveTab] = useState("home");
   const [selectedCapability, setSelectedCapability] = useState("chat");
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -38,7 +44,7 @@ export function AshviShell() {
         content: transcript,
       };
       setMessages((prev) => [...prev, userMessage]);
-      setIsChatModalOpen(true);
+      setActiveTab("chat");
       setStreamText("");
     },
     onAssistantResponse: (fullText) => {
@@ -52,6 +58,18 @@ export function AshviShell() {
     },
     onError: (err) => setError(err),
   });
+
+  // Fetch session username if not provided
+  useEffect(() => {
+    if (!userName) {
+      fetch(`${base}/api/auth/session`, { credentials: "include", cache: "no-store", headers: getAuthHeaders() })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (data?.user?.name) setUserName(data.user.name);
+        })
+        .catch(() => {});
+    }
+  }, [base, userName]);
 
   // Load conversations on mount
   useEffect(() => {
@@ -77,6 +95,7 @@ export function AshviShell() {
       setConversations((prev) => [conv, ...prev]);
       setError("");
       await openConversation(conv.id, conv.title || "New Space");
+      setActiveTab("chat");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Ashvi could not create a conversation.");
     }
@@ -86,7 +105,6 @@ export function AshviShell() {
   const openConversation = async (id: string, title?: string) => {
     setActiveConversationId(id);
     setActiveTitle(title || "General");
-    setIsChatModalOpen(true);
     setMessages([]);
     setStreamText("");
     setError("");
@@ -142,7 +160,7 @@ export function AshviShell() {
       content: text,
     };
     setMessages((prev) => [...prev, userMessage]);
-    setIsChatModalOpen(true);
+    setActiveTab("chat");
     setIsStreaming(true);
     setStreamText("");
     setError("");
@@ -152,7 +170,7 @@ export function AshviShell() {
         method: "POST",
         credentials: "include",
         headers: getAuthHeaders({ "content-type": "application/json" }),
-        body: JSON.stringify({ content: text }),
+        body: JSON.stringify({ content: text, language: voice.voiceLanguage }),
       });
 
       if (!response.ok || !response.body) {
@@ -231,6 +249,31 @@ export function AshviShell() {
     }
   };
 
+  // If user selected Chat, render the dedicated Ashvi Chat Room experience
+  if (activeTab === "chat") {
+    return (
+      <AshviChatView
+        onBack={() => setActiveTab("home")}
+        userName={userName}
+        activeConversationId={activeConversationId}
+        activeTitle={activeTitle}
+        messages={messages}
+        streamText={streamText}
+        isStreaming={isStreaming}
+        error={error || voice.voiceError}
+        voiceState={voice.voiceState}
+        voiceLanguage={voice.voiceLanguage}
+        onSetVoiceLanguage={voice.setVoiceLanguage}
+        onToggleVoice={voice.toggleListening}
+        onInterrupt={voice.interrupt}
+        onSpeak={voice.speakText}
+        onSendMessage={handleSendMessage}
+        onNewSpace={handleNewSpace}
+        onUploadFile={handleUploadFile}
+      />
+    );
+  }
+
   return (
     <div className="ashvi-app-shell">
 
@@ -257,6 +300,7 @@ export function AshviShell() {
           onSelectSpace={(id) => {
             const found = conversations.find((c) => c.id === id);
             openConversation(id, found?.title);
+            setActiveTab("chat");
           }}
         />
 
@@ -266,7 +310,11 @@ export function AshviShell() {
             selectedCapability={selectedCapability}
             onSelectCapability={(cap) => {
               setSelectedCapability(cap);
-              handleSendMessage(`Let's explore ${cap}.`);
+              if (cap === "chat") {
+                setActiveTab("chat");
+              } else {
+                handleSendMessage(`Let's explore ${cap}.`);
+              }
             }}
           />
 

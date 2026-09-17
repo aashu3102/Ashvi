@@ -26,11 +26,5 @@ export function resolveAllowedOrigins(environment: Environment) {
 
 export function isAllowedBrowserOrigin(origin: string | undefined, allowedOrigins: Set<string>) {
   if (!origin) return true;
-  const normalized = normalizeOrigin(origin);
-  if (allowedOrigins.has(normalized)) return true;
-  if (normalized.endsWith(".vercel.app") || /^https:\/\/[a-zA-Z0-9_-]+\.vercel\.app$/.test(normalized)) return true;
-  if (normalized.endsWith(".workers.dev") || /^https:\/\/[a-zA-Z0-9_-]+\.workers\.dev$/.test(normalized)) return true;
-  if (normalized.includes("trycloudflare.com")) return true;
-  if (normalized.includes("localhost") || normalized.includes("127.0.0.1")) return true;
-  return false;
+  return allowedOrigins.has(normalizeOrigin(origin));
 }

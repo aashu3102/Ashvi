@@ -85,7 +85,8 @@ export class AshviOrchestrator {
       inputMessages,
       input.documentContext,
       input.memoryContext,
-      classification.intent
+      classification.intent,
+      { language: input.language }
     );
 
     // 3. Task Planning

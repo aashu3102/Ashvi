@@ -31,6 +31,8 @@ export async function authRoutes(app: FastifyInstance, options: { environment: E
   });
 
   app.get("/api/auth/session", async (request, reply) => {
-    return request.userId ? reply.send({ authenticated: true }) : reply.code(401).send({ error: { code: "UNAUTHENTICATED", message: "Authentication required." } });
+    return request.userId
+      ? reply.send({ authenticated: true, user: request.user })
+      : reply.code(401).send({ error: { code: "UNAUTHENTICATED", message: "Authentication required." } });
   });
 }

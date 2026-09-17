@@ -82,7 +82,9 @@ export async function conversationRoutes(app: FastifyInstance, options: { enviro
   });
 
   app.post<{ Params: { id: string } }>('/api/conversations/:id/messages/stream', async (request, reply) => {
+    const rawBody = (request.body && typeof request.body === "object" ? request.body : {}) as Record<string, unknown>;
     const body = createMessageSchema.parse(request.body);
+    const language: "en" | "hi" = rawBody.language === "hi" ? "hi" : "en";
     const message = await addUserMessage(app.prisma, request.params.id, body.content, request.userId ?? undefined);
     if (!message) return reply.code(404).send({ error: { code: "NOT_FOUND", message: "Conversation not found." } });
 
@@ -107,6 +109,7 @@ export async function conversationRoutes(app: FastifyInstance, options: { enviro
           messages: conversation.messages,
           documentContext,
           memoryContext,
+          language,
         })) {
           if (event.type === "chunk") {
             yield `data: ${JSON.stringify({ type: "chunk", content: event.content })}\n\n`;

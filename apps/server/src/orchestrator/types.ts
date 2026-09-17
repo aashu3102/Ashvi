@@ -104,6 +104,7 @@ export type OrchestratorExecuteInput = {
   memoryContext?: string;
   providerId?: string;
   modelOverride?: string;
+  language?: "en" | "hi";
 };
 
 export type OrchestratorStreamEvent =

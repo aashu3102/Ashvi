@@ -34,6 +34,7 @@ export function useAshviVoice(options: UseAshviVoiceOptions = {}) {
   const audioQueueRef = useRef<Array<{ url: string; text?: string }>>([]);
   const isPlayingRef = useRef<boolean>(false);
   const playNextInQueueRef = useRef<() => void>(() => {});
+  const pauseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Initialize audio element and queue dispatcher
   useEffect(() => {
@@ -60,7 +61,14 @@ export function useAshviVoice(options: UseAshviVoiceOptions = {}) {
         audio.onended = () => {
           console.log(`[VOICE DEBUG] playback_ended=true url=${next.url}`);
           URL.revokeObjectURL(next.url);
-          playNextInQueue();
+          // Natural breath pause (~200ms) between sentences/chunks
+          if (audioQueueRef.current.length > 0) {
+            pauseTimeoutRef.current = setTimeout(() => {
+              playNextInQueue();
+            }, 200);
+          } else {
+            playNextInQueue();
+          }
         };
         audio.onerror = (e) => {
           console.error("[VOICE DEBUG] playback_error=", e);
@@ -78,6 +86,9 @@ export function useAshviVoice(options: UseAshviVoiceOptions = {}) {
       playNextInQueueRef.current = playNextInQueue;
 
       return () => {
+        if (pauseTimeoutRef.current) {
+          clearTimeout(pauseTimeoutRef.current);
+        }
         audio.pause();
         audioQueueRef.current.forEach((item) => URL.revokeObjectURL(item.url));
         audioQueueRef.current = [];
@@ -95,6 +106,10 @@ export function useAshviVoice(options: UseAshviVoiceOptions = {}) {
   }, []);
 
   const stopAudioPlayback = useCallback(() => {
+    if (pauseTimeoutRef.current) {
+      clearTimeout(pauseTimeoutRef.current);
+      pauseTimeoutRef.current = null;
+    }
     if (audioPlayerRef.current) {
       audioPlayerRef.current.pause();
       audioPlayerRef.current.currentTime = 0;

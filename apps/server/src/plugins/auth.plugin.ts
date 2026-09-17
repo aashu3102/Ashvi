@@ -6,6 +6,7 @@ import { sessionCookieName } from "../auth/session-cookie.js";
 declare module "fastify" {
   interface FastifyRequest {
     userId: string | null;
+    user: { id: string; name: string } | null;
   }
 }
 
@@ -15,6 +16,7 @@ function requestPath(url: string) {
 
 export const authPlugin = fp(async (app, options: { environment: Environment }) => {
   app.decorateRequest("userId", null);
+  app.decorateRequest("user", null);
   app.addHook("preHandler", async (request, reply) => {
     if (request.method === "OPTIONS") return;
 
@@ -29,5 +31,6 @@ export const authPlugin = fp(async (app, options: { environment: Environment }) 
     const session = await resolveSession(app.prisma, token, options.environment.ASHVI_SESSION_SECRET);
     if (!session) return reply.code(401).send({ error: { code: "UNAUTHENTICATED", message: "Authentication required." } });
     request.userId = session.user.id;
+    request.user = { id: session.user.id, name: session.user.name };
   });
 }, { name: "ashvi-auth" });
