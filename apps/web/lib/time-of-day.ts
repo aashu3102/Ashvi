@@ -36,23 +36,36 @@ export const TIME_THEMES: Record<TimeOfDay, TimeTheme> = {
 
 /**
  * Returns current time of day according to client's local hour:
- * - Morning:   05:00 – 10:59
- * - Afternoon: 11:00 – 15:59
- * - Evening:   16:00 – 18:59
- * - Night:     19:00 – 04:59
+ * - 05:00 – 11:59: Morning   -> "Good morning"
+ * - 12:00 – 16:59: Afternoon -> "Good afternoon"
+ * - 17:00 – 20:59: Evening   -> "Good evening"
+ * - 21:00 – 04:59: Night     -> "Good night"
  */
 export function getTimeOfDay(date: Date = new Date()): TimeOfDay {
   const hour = date.getHours();
-  if (hour >= 5 && hour < 11) {
+  if (hour >= 5 && hour < 12) {
     return "morning";
   }
-  if (hour >= 11 && hour < 16) {
+  if (hour >= 12 && hour < 17) {
     return "afternoon";
   }
-  if (hour >= 16 && hour < 19) {
+  if (hour >= 17 && hour < 21) {
     return "evening";
   }
   return "night";
+}
+
+export function getGreetingWord(timeOfDay: TimeOfDay): string {
+  switch (timeOfDay) {
+    case "morning":
+      return "Good morning";
+    case "afternoon":
+      return "Good afternoon";
+    case "evening":
+      return "Good evening";
+    case "night":
+      return "Good night";
+  }
 }
 
 /**
@@ -60,9 +73,10 @@ export function getTimeOfDay(date: Date = new Date()): TimeOfDay {
  * "Good morning, Aashu." or "Good night, Shambhavi."
  */
 export function getGreeting(timeOfDay: TimeOfDay, name?: string | null): string {
+  const greetingWord = getGreetingWord(timeOfDay);
   const cleanName = name ? name.trim().split(" ")[0] : "";
   if (cleanName) {
-    return `Good ${timeOfDay}, ${cleanName}.`;
+    return `${greetingWord}, ${cleanName}.`;
   }
-  return `Good ${timeOfDay}.`;
+  return `${greetingWord}.`;
 }

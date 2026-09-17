@@ -10,7 +10,7 @@ export function AuthGate() {
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
   const [userName, setUserName] = useState<string | null>(null);
 
-  useEffect(() => {
+  const verifySession = () => {
     let isMounted = true;
     fetch(`${getApiBaseUrl()}/api/auth/session`, { credentials: "include", cache: "no-store", headers: getAuthHeaders() })
       .then(async (res) => {
@@ -32,6 +32,10 @@ export function AuthGate() {
     return () => {
       isMounted = false;
     };
+  };
+
+  useEffect(() => {
+    return verifySession();
   }, []);
 
   if (authenticated === null) {
@@ -50,5 +54,5 @@ export function AuthGate() {
     return <AshviShell userName={userName} />;
   }
 
-  return <AuthenticationPage onSuccess={() => setAuthenticated(true)} />;
+  return <AuthenticationPage onSuccess={() => verifySession()} />;
 }

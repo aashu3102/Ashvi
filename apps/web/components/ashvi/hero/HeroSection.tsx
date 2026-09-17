@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { AshviCoreOrb } from "../core/AshviCoreOrb";
-import { getTimeOfDay, TimeOfDay } from "@/lib/time-of-day";
+import { getTimeOfDay, getGreetingWord, TimeOfDay } from "@/lib/time-of-day";
+import { getApiBaseUrl, getAuthHeaders } from "@/lib/api";
 
 interface Props {
   onSelectTag?: (tag: string) => void;
@@ -11,14 +12,32 @@ interface Props {
 
 export function HeroSection({ onSelectTag, userName }: Props) {
   const tags = ["Ideas", "Knowledge", "Projects", "Growth", "A Better You"];
-  const [timeOfDay, setTimeOfDay] = useState<TimeOfDay>(() => getTimeOfDay());
+  const [timeOfDay, setTimeOfDay] = useState<TimeOfDay>(() => getTimeOfDay(new Date()));
+  const [fetchedName, setFetchedName] = useState<string>("");
 
+  // Calculate browser/device local time safely and update as time periods change
   useEffect(() => {
     const timer = setInterval(() => {
-      setTimeOfDay(getTimeOfDay());
-    }, 30000);
+      const next = getTimeOfDay(new Date());
+      setTimeOfDay((prev) => (prev !== next ? next : prev));
+    }, 15000);
+
     return () => clearInterval(timer);
   }, []);
+
+  // Dynamically resolve authenticated operator name if not passed via props
+  useEffect(() => {
+    if (userName) return;
+
+    fetch(`${getApiBaseUrl()}/api/auth/session`, { credentials: "include", cache: "no-store", headers: getAuthHeaders() })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.user?.name) {
+          setFetchedName(data.user.name.trim().split(" ")[0]);
+        }
+      })
+      .catch(() => {});
+  }, [userName]);
 
   // Format dynamic date similar to reference (e.g. "SUN, 14 SEPT 2026")
   const dateStr = new Date().toLocaleDateString("en-US", {
@@ -28,23 +47,17 @@ export function HeroSection({ onSelectTag, userName }: Props) {
     year: "numeric",
   }).toUpperCase();
 
-  const greetingWord = timeOfDay === "morning"
-    ? "Good morning"
-    : timeOfDay === "afternoon"
-    ? "Good afternoon"
-    : timeOfDay === "evening"
-    ? "Good evening"
-    : "Good night";
-
-  const displayName = userName ? userName.trim().split(" ")[0] : "Aashu";
+  const greetingWord = getGreetingWord(timeOfDay);
+  const cleanPropName = userName ? userName.trim().split(" ")[0] : "";
+  const displayName = cleanPropName || fetchedName || "Aashu";
 
   return (
     <section className="ashvi-hero-container" aria-label="Welcome banner">
       <div className="ashvi-hero-left">
-        <div className="ashvi-date-stamp" aria-label="Current date">
+        <div className="ashvi-date-stamp" aria-label="Current date" suppressHydrationWarning>
           {dateStr}
         </div>
-        <h2 className="ashvi-hero-greeting">
+        <h2 className="ashvi-hero-greeting" suppressHydrationWarning>
           {greetingWord},<br />
           {displayName}.
         </h2>
