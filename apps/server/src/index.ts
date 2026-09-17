@@ -9,8 +9,8 @@ const app = buildApp(environment);
 
 async function start() {
   try {
-    await app.listen({ port: environment.ASHVI_SERVER_PORT, host: "127.0.0.1" });
-    app.log.info({ port: environment.ASHVI_SERVER_PORT }, "Ashvi server started");
+    await app.listen({ port: environment.ASHVI_SERVER_PORT, host: environment.ASHVI_SERVER_HOST });
+    app.log.info({ port: environment.ASHVI_SERVER_PORT, host: environment.ASHVI_SERVER_HOST }, "Ashvi server started");
   } catch (error) {
     app.log.error({ err: error }, "Ashvi server failed to start");
     process.exit(1);

@@ -12,6 +12,8 @@ import { settingsRoutes } from "../routes/settings.routes.js";
 import { authRoutes } from "../routes/auth.routes.js";
 import { voiceRoutes } from "../routes/voice.routes.js";
 import { authPlugin } from "../plugins/auth.plugin.js";
+import { proxyGatePlugin } from "../plugins/proxy-gate.plugin.js";
+import { isAllowedBrowserOrigin, resolveAllowedOrigins } from "../auth/origins.js";
 import type { AIProvider } from "../ai/provider.js";
 import type { AshviOrchestrator } from "../orchestrator/index.js";
 import type { VoiceService } from "../voice/index.js";
@@ -27,35 +29,30 @@ export function buildApp(
   } = {},
 ): FastifyInstance {
   const app = Fastify({
+    trustProxy: true,
     logger: {
       level: environment.ASHVI_LOG_LEVEL,
-      redact: ["req.headers.authorization", "req.headers.cookie", "req.body.password", "req.body.code", "req.body.apiKey"],
+      redact: ["req.headers.authorization", "req.headers.cookie", "req.headers.x-ashvi-proxy-key", "req.body.password", "req.body.code", "req.body.apiKey"],
     },
   });
 
-  const allowedOrigins = new Set([
-    environment.ASHVI_FRONTEND_URL,
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://localhost:3005",
-    "http://127.0.0.1:3005",
-  ]);
+  const allowedOrigins = resolveAllowedOrigins(environment);
 
   app.register(cors, {
     origin: (origin, callback) => {
-      if (!origin || allowedOrigins.has(origin) || origin.endsWith(".vercel.app") || /^https:\/\/[a-zA-Z0-9-]+-.*\.vercel\.app$/.test(origin) || origin.includes("trycloudflare.com")) {
+      if (isAllowedBrowserOrigin(origin, allowedOrigins)) {
         callback(null, true);
         return;
       }
 
-      callback(new Error("CORS origin not allowed"), false);
+      callback(null, false);
     },
     credentials: true,
     methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "Cookie", "Accept", "X-Requested-With"],
-    exposedHeaders: ["Set-Cookie"],
+    allowedHeaders: ["Content-Type", "Authorization", "Cookie", "Accept", "X-Requested-With", "X-Ashvi-Proxy-Key"],
   });
   app.register(cookie);
+  app.register(proxyGatePlugin, { environment });
 
   app.setErrorHandler((error: FastifyError, request, reply) => {
     request.log.error({ err: error, requestId: request.id }, "Request failed");

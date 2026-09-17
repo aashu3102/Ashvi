@@ -4,7 +4,10 @@ const environmentSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   DATABASE_URL: z.string().url(),
   ASHVI_SERVER_PORT: z.coerce.number().int().min(1).max(65535).default(4000),
+  ASHVI_SERVER_HOST: z.string().min(1).default("127.0.0.1"),
   ASHVI_FRONTEND_URL: z.url().default("http://localhost:3000"),
+  ASHVI_ALLOWED_ORIGINS: z.string().optional(),
+  ASHVI_PROXY_SECRET: z.string().min(32).optional(),
   ASHVI_LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).default("info"),
   ASHVI_AI_MODEL: z.string().default("qwen2.5:3b"),
   OLLAMA_BASE_URL: z.url().default("http://127.0.0.1:11434"),
@@ -38,5 +41,11 @@ const environmentSchema = z.object({
 export type Environment = z.infer<typeof environmentSchema>;
 
 export function loadEnvironment(input: NodeJS.ProcessEnv = process.env): Environment {
-  return environmentSchema.parse(input);
+  const isCloudHost = Boolean(input.PORT || input.RENDER || input.RAILWAY_STATIC_URL || input.FLY_APP_NAME);
+  const normalized = {
+    ...input,
+    ASHVI_SERVER_PORT: input.ASHVI_SERVER_PORT || input.PORT || "4000",
+    ASHVI_SERVER_HOST: input.ASHVI_SERVER_HOST || (isCloudHost ? "0.0.0.0" : "127.0.0.1"),
+  };
+  return environmentSchema.parse(normalized);
 }

@@ -1,0 +1,7 @@
+name = "ashvi-secure-core-gateway"
+main = "src/index.ts"
+compatibility_date = "2026-09-17"
+
+# Stable public origin for Vercel ASHVI_API_URL.
+# Secrets: ORIGIN_URL, ASHVI_PROXY_SECRET
+# ORIGIN_URL must be a durable Fastify host, never a trycloudflare quick tunnel.

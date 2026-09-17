@@ -59,7 +59,10 @@ describe("private access boundary", () => {
   it("allows a valid independent identity to authenticate", async () => {
     const response = await app.inject({ method: "POST", url: "/api/auth/login", remoteAddress: "10.0.0.2", payload: { username: userB, code, password } });
     expect(response.statusCode).toBe(200);
-    expect(response.cookies.some((cookie) => cookie.name === "ashvi_session" && cookie.httpOnly)).toBe(true);
+    expect(response.json().token).toBeUndefined();
+    const sessionCookie = response.cookies.find((item) => item.name === "ashvi_session");
+    expect(sessionCookie?.httpOnly).toBe(true);
+    expect(sessionCookie?.sameSite).toBe("Lax");
   });
 
   it("blocks repeated failures from the same IP signal", async () => {

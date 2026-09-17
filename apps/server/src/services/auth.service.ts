@@ -3,7 +3,7 @@ import type { PrismaClient } from "@prisma/client";
 import argon2 from "argon2";
 import type { Environment } from "../config/env.js";
 
-const sessionLifetimeMs = 8 * 60 * 60 * 1000;
+export const sessionLifetimeMs = 30 * 24 * 60 * 60 * 1000;
 const lockDurationMs = 30 * 60 * 1000;
 const maxAttempts = 3;
 const genericFailure = "Access could not be verified.";
@@ -96,7 +96,11 @@ export async function resolveSession(db: PrismaClient, token: string, secret = "
     if (session) await db.authSession.delete({ where: { id: session.id } }).catch(() => undefined);
     return null;
   }
-  await db.authSession.update({ where: { id: session.id }, data: { lastSeenAt: new Date() } });
+  const now = new Date();
+  await db.authSession.update({
+    where: { id: session.id },
+    data: { lastSeenAt: now, expiresAt: new Date(now.getTime() + sessionLifetimeMs) },
+  });
   return { sessionId: session.id, user: session.user };
 }
 

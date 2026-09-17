@@ -11,7 +11,7 @@ export function AuthGate() {
 
   useEffect(() => {
     let isMounted = true;
-    fetch(`${getApiBaseUrl()}/api/auth/session`, { credentials: "include", headers: getAuthHeaders() })
+    fetch(`${getApiBaseUrl()}/api/auth/session`, { credentials: "include", cache: "no-store", headers: getAuthHeaders() })
       .then((res) => {
         if (isMounted) setAuthenticated(res.ok);
       })

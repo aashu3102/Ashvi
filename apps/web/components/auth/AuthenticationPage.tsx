@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { AuthenticationEnvironment } from "./AuthenticationEnvironment";
 import { AshviBrandPanel } from "./AshviBrandPanel";
 import { SecureAccessCard } from "./SecureAccessCard";
-import { getApiBaseUrl, getAuthHeaders, setAuthToken } from "@/lib/api";
+import { getApiBaseUrl, getAuthHeaders, clearAuthToken } from "@/lib/api";
 import "./auth.css";
 
 type LoginState = "checking" | "locked" | "login" | "unlocking" | "authenticated";
@@ -21,16 +21,20 @@ export function AuthenticationPage({ onSuccess }: { onSuccess?: () => void }) {
 
   useEffect(() => {
     let isMounted = true;
-    fetch(`${getApiBaseUrl()}/api/auth/session`, { credentials: "include", headers: getAuthHeaders() })
+    fetch(`${getApiBaseUrl()}/api/auth/session`, { credentials: "include", cache: "no-store", headers: getAuthHeaders() })
       .then((response) => {
         if (!isMounted) return;
         if (response.ok) {
+          clearAuthToken();
           setState("authenticated");
           if (onSuccess) {
             onSuccess();
           } else {
             router.push("/");
           }
+        } else if (response.status >= 500) {
+          setState("login");
+          setMessage("The secure core is currently unreachable.");
         } else {
           setState("login");
         }
@@ -38,6 +42,7 @@ export function AuthenticationPage({ onSuccess }: { onSuccess?: () => void }) {
       .catch(() => {
         if (!isMounted) return;
         setState("login");
+        setMessage("The secure core is currently unreachable.");
       });
 
     return () => {
@@ -56,13 +61,13 @@ export function AuthenticationPage({ onSuccess }: { onSuccess?: () => void }) {
       const response = await fetch(`${getApiBaseUrl()}/api/auth/login`, {
         method: "POST",
         credentials: "include",
+        cache: "no-store",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ username: username.trim(), code, password }),
       });
 
       const payload = (await response.json().catch(() => null)) as {
         error?: { message?: string };
-        token?: string;
       } | null;
 
       setCode("");
@@ -81,9 +86,7 @@ export function AuthenticationPage({ onSuccess }: { onSuccess?: () => void }) {
         return;
       }
 
-      if (payload?.token) {
-        setAuthToken(payload.token);
-      }
+      clearAuthToken();
 
       setState("unlocking");
       window.setTimeout(() => {
