@@ -41,8 +41,7 @@ export const TIME_THEMES: Record<TimeOfDay, TimeTheme> = {
  * - 17:00 – 20:59: Evening   -> "Good evening"
  * - 21:00 – 04:59: Night     -> "Good night"
  */
-export function getTimeOfDay(date: Date = new Date()): TimeOfDay {
-  const hour = date.getHours();
+export function getTimeOfDayFromHour(hour: number): TimeOfDay {
   if (hour >= 5 && hour < 12) {
     return "morning";
   }
@@ -53,6 +52,10 @@ export function getTimeOfDay(date: Date = new Date()): TimeOfDay {
     return "evening";
   }
   return "night";
+}
+
+export function getTimeOfDay(date: Date = new Date()): TimeOfDay {
+  return getTimeOfDayFromHour(date.getHours());
 }
 
 export function getGreetingWord(timeOfDay: TimeOfDay): string {
@@ -66,6 +69,18 @@ export function getGreetingWord(timeOfDay: TimeOfDay): string {
     case "night":
       return "Good night";
   }
+}
+
+export function getGreetingWordFromHour(hour: number): string {
+  return getGreetingWord(getTimeOfDayFromHour(hour));
+}
+
+/**
+ * Directly queries current browser/device local clock hour (new Date().getHours()).
+ * Guaranteed client-side evaluation without UTC or server timezone artifacts.
+ */
+export function getLocalGreetingWord(): string {
+  return getGreetingWordFromHour(new Date().getHours());
 }
 
 /**

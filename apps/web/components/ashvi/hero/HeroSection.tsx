@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { AshviCoreOrb } from "../core/AshviCoreOrb";
-import { getTimeOfDay, getGreetingWord, TimeOfDay } from "@/lib/time-of-day";
+import { getLocalGreetingWord } from "@/lib/time-of-day";
 import { getApiBaseUrl, getAuthHeaders } from "@/lib/api";
 
 interface Props {
@@ -12,16 +12,31 @@ interface Props {
 
 export function HeroSection({ onSelectTag, userName }: Props) {
   const tags = ["Ideas", "Knowledge", "Projects", "Growth", "A Better You"];
-  const [timeOfDay, setTimeOfDay] = useState<TimeOfDay>(() => getTimeOfDay(new Date()));
+  // Guaranteed zero bad fallbacks during SSR/prerender - calculated on browser mount
+  const [greetingWord, setGreetingWord] = useState<string>("");
+  const [dateStr, setDateStr] = useState<string>("");
   const [fetchedName, setFetchedName] = useState<string>("");
 
-  // Calculate browser/device local time safely and update as time periods change
+  // Calculate browser/device local time immediately upon client mount and update every 15s
   useEffect(() => {
-    const timer = setInterval(() => {
-      const next = getTimeOfDay(new Date());
-      setTimeOfDay((prev) => (prev !== next ? next : prev));
-    }, 15000);
+    const updateLocalClock = () => {
+      // Direct inquiry into user's local browser clock
+      setGreetingWord(getLocalGreetingWord());
 
+      setDateStr(
+        new Date().toLocaleDateString("en-US", {
+          weekday: "short",
+          day: "numeric",
+          month: "short",
+          year: "numeric",
+        }).toUpperCase()
+      );
+    };
+
+    // Execute immediately on browser mount
+    updateLocalClock();
+
+    const timer = setInterval(updateLocalClock, 15000);
     return () => clearInterval(timer);
   }, []);
 
@@ -39,15 +54,6 @@ export function HeroSection({ onSelectTag, userName }: Props) {
       .catch(() => {});
   }, [userName]);
 
-  // Format dynamic date similar to reference (e.g. "SUN, 14 SEPT 2026")
-  const dateStr = new Date().toLocaleDateString("en-US", {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  }).toUpperCase();
-
-  const greetingWord = getGreetingWord(timeOfDay);
   const cleanPropName = userName ? userName.trim().split(" ")[0] : "";
   const displayName = cleanPropName || fetchedName || "Aashu";
 
@@ -58,7 +64,7 @@ export function HeroSection({ onSelectTag, userName }: Props) {
           {dateStr}
         </div>
         <h2 className="ashvi-hero-greeting" suppressHydrationWarning>
-          {greetingWord},<br />
+          {greetingWord ? `${greetingWord},` : ""}<br />
           {displayName}.
         </h2>
         <p className="ashvi-hero-question">What are we creating today?</p>
