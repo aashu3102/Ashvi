@@ -8,6 +8,7 @@ import { AshviChatBackground } from "./AshviChatBackground";
 import { AshviChatHeader } from "./AshviChatHeader";
 import { AshviChatMessages } from "./AshviChatMessages";
 import { AshviChatComposer } from "./AshviChatComposer";
+import { AshviConversationDrawer, type ConversationItem } from "./AshviConversationDrawer";
 import "./chat.css";
 
 interface Props {
@@ -15,6 +16,10 @@ interface Props {
   userName?: string | null;
   activeConversationId: string | null;
   activeTitle: string;
+  conversations: ConversationItem[];
+  onSelectConversation: (id: string) => void;
+  onRenameConversation: (id: string, newTitle: string) => Promise<void>;
+  onDeleteConversation: (id: string) => Promise<void>;
   messages: ChatMessage[];
   streamText: string;
   isStreaming: boolean;
@@ -33,6 +38,12 @@ interface Props {
 export function AshviChatView({
   onBack,
   userName,
+  activeConversationId,
+  activeTitle,
+  conversations,
+  onSelectConversation,
+  onRenameConversation,
+  onDeleteConversation,
   messages,
   streamText,
   isStreaming,
@@ -48,6 +59,7 @@ export function AshviChatView({
   onUploadFile,
 }: Props) {
   const [timeOfDay, setTimeOfDay] = useState<TimeOfDay>(() => getTimeOfDay());
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   // Periodically refresh time of day
   useEffect(() => {
@@ -59,18 +71,32 @@ export function AshviChatView({
 
   return (
     <div className="ashvi-chat-room">
-      {/* Dynamic Time of Day Scene Layer with crossfade */}
+      {/* Dynamic Time of Day Scene Layer with clear scenic view */}
       <AshviChatBackground forcedTimeOfDay={timeOfDay} />
 
-      {/* Floating Translucent Header */}
+      {/* Floating Minimal Controls Bar (No large header) */}
       <AshviChatHeader
         onBack={onBack}
+        onOpenDrawer={() => setIsDrawerOpen(true)}
         onNewSpace={onNewSpace}
-        timeOfDay={timeOfDay}
         language={voiceLanguage}
         onSelectLanguage={onSetVoiceLanguage}
         voiceState={voiceState}
         isStreaming={isStreaming}
+        conversationCount={conversations.length}
+        title={activeTitle}
+      />
+
+      {/* Real Conversation Drawer with Search, Rename & Delete */}
+      <AshviConversationDrawer
+        isOpen={isDrawerOpen}
+        onClose={() => setIsDrawerOpen(false)}
+        conversations={conversations}
+        activeConversationId={activeConversationId}
+        onSelectConversation={onSelectConversation}
+        onNewConversation={onNewSpace}
+        onRenameConversation={onRenameConversation}
+        onDeleteConversation={onDeleteConversation}
       />
 
       {/* Center Conversation Stage */}

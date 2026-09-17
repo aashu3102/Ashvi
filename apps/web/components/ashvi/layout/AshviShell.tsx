@@ -125,6 +125,48 @@ export function AshviShell({ userName: initialUserName }: AshviShellProps = {}) 
     }
   };
 
+  // Rename a conversation
+  const handleRenameConversation = async (id: string, newTitle: string) => {
+    try {
+      const res = await fetch(`${base}/api/conversations/${id}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: getAuthHeaders({ "content-type": "application/json" }),
+        body: JSON.stringify({ title: newTitle }),
+      });
+      if (!res.ok) throw new Error("Could not rename conversation.");
+      setConversations((prev) =>
+        prev.map((c) => (c.id === id ? { ...c, title: newTitle } : c))
+      );
+      if (activeConversationId === id) {
+        setActiveTitle(newTitle);
+      }
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Failed to rename conversation.");
+    }
+  };
+
+  // Delete a conversation
+  const handleDeleteConversation = async (id: string) => {
+    try {
+      const res = await fetch(`${base}/api/conversations/${id}`, {
+        method: "DELETE",
+        credentials: "include",
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) throw new Error("Could not delete conversation.");
+      setConversations((prev) => prev.filter((c) => c.id !== id));
+      if (activeConversationId === id) {
+        setActiveConversationId(null);
+        setActiveTitle("General");
+        setMessages([]);
+        setStreamText("");
+      }
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Failed to delete conversation.");
+    }
+  };
+
   // Send message and stream response
   const handleSendMessage = async (text: string) => {
     let currentId = activeConversationId;
@@ -257,6 +299,13 @@ export function AshviShell({ userName: initialUserName }: AshviShellProps = {}) 
         userName={userName}
         activeConversationId={activeConversationId}
         activeTitle={activeTitle}
+        conversations={conversations}
+        onSelectConversation={(id) => {
+          const found = conversations.find((c) => c.id === id);
+          openConversation(id, found?.title);
+        }}
+        onRenameConversation={handleRenameConversation}
+        onDeleteConversation={handleDeleteConversation}
         messages={messages}
         streamText={streamText}
         isStreaming={isStreaming}
@@ -319,6 +368,7 @@ export function AshviShell({ userName: initialUserName }: AshviShellProps = {}) 
           />
 
           <HeroSection
+            userName={userName}
             onSelectTag={(tag) => handleSendMessage(`I want to focus on ${tag}.`)}
           />
 

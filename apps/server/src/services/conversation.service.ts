@@ -10,7 +10,16 @@ async function userId(db: PrismaClient, authenticatedUserId?: string) {
 
 export async function listConversations(db: PrismaClient, authenticatedUserId?: string) {
   const id = await userId(db, authenticatedUserId);
-  return db.conversation.findMany({ where: { userId: id }, orderBy: { updatedAt: "desc" } });
+  return db.conversation.findMany({
+    where: { userId: id },
+    orderBy: { updatedAt: "desc" },
+    include: {
+      messages: {
+        orderBy: { createdAt: "desc" },
+        take: 1,
+      },
+    },
+  });
 }
 
 export async function createConversation(db: PrismaClient, title?: string, authenticatedUserId?: string) {

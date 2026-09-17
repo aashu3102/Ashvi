@@ -8,23 +8,21 @@ interface Props {
 }
 
 export function AshviChatBackground({ forcedTimeOfDay }: Props) {
-  const [currentTime, setCurrentTime] = useState<TimeOfDay>(() => forcedTimeOfDay || getTimeOfDay());
+  const [localTime, setLocalTime] = useState<TimeOfDay>(() => getTimeOfDay());
 
   // Check periodically (every 30s) if the time-of-day period has changed
   useEffect(() => {
-    if (forcedTimeOfDay) {
-      setCurrentTime(forcedTimeOfDay);
-      return;
-    }
+    if (forcedTimeOfDay) return;
 
     const interval = setInterval(() => {
       const nextTime = getTimeOfDay();
-      setCurrentTime((prev) => (prev !== nextTime ? nextTime : prev));
+      setLocalTime((prev) => (prev !== nextTime ? nextTime : prev));
     }, 30000);
 
     return () => clearInterval(interval);
   }, [forcedTimeOfDay]);
 
+  const currentTime = forcedTimeOfDay || localTime;
   const activeTheme = TIME_THEMES[currentTime];
 
   const allTimes: TimeOfDay[] = ["morning", "afternoon", "evening", "night"];
