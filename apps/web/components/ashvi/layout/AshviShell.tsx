@@ -21,6 +21,11 @@ const AshviChatView = dynamic(
   { ssr: false }
 );
 
+const AshviNotebookView = dynamic(
+  () => import("../notebook/AshviNotebookView").then((mod) => mod.AshviNotebookView),
+  { ssr: false }
+);
+
 const ActiveChatModal = dynamic(
   () => import("../conversation/ActiveChatModal").then((mod) => mod.ActiveChatModal),
   { ssr: false }
@@ -224,6 +229,8 @@ export function AshviShell({ userName = null, onLogout }: AshviShellProps = {}) 
       const decoder = new TextDecoder();
       let buffer = "";
       let completedAssistant: ChatMessage | null = null;
+      let streamSources: any[] = [];
+      let streamImages: any[] = [];
       let streamError = "";
 
       const consumeEvent = (line: string) => {
@@ -231,6 +238,8 @@ export function AshviShell({ userName = null, onLogout }: AshviShellProps = {}) 
           type?: string;
           content?: string;
           assistant?: ChatMessage;
+          sources?: any[];
+          images?: any[];
           error?: string;
         } | null;
         if (!parsed) return;
@@ -238,6 +247,10 @@ export function AshviShell({ userName = null, onLogout }: AshviShellProps = {}) 
         try {
           if (parsed.type === "chunk" && parsed.content) {
             setStreamText((current) => current + parsed.content);
+          } else if (parsed.type === "sources" && Array.isArray(parsed.sources)) {
+            streamSources = parsed.sources;
+          } else if (parsed.type === "image" && Array.isArray(parsed.images)) {
+            streamImages = parsed.images;
           } else if (parsed.type === "done" && parsed.assistant) {
             completedAssistant = parsed.assistant;
           } else if (parsed.type === "error") {
@@ -262,6 +275,14 @@ export function AshviShell({ userName = null, onLogout }: AshviShellProps = {}) 
       if (streamError) throw new Error(streamError);
       const assistant = completedAssistant as ChatMessage | null;
       if (!assistant?.content?.trim()) throw new Error("Ashvi returned an empty response.");
+
+      if (streamSources.length > 0 || streamImages.length > 0) {
+        assistant.metadata = {
+          ...(assistant.metadata || {}),
+          ...(streamSources.length > 0 && !assistant.metadata?.sources ? { sources: streamSources } : {}),
+          ...(streamImages.length > 0 && !assistant.metadata?.images ? { images: streamImages } : {}),
+        };
+      }
 
       setMessages((prev) => [...prev, assistant]);
       setStreamText("");
@@ -290,6 +311,17 @@ export function AshviShell({ userName = null, onLogout }: AshviShellProps = {}) 
       setError(cause instanceof Error ? cause.message : `Could not upload "${file.name}" to secure core.`);
     }
   };
+
+  // If user selected Notebook, render dedicated Notebook workspace
+  if (activeTab === "notebook") {
+    return (
+      <AshviNotebookView
+        onBack={() => setActiveTab("home")}
+        userName={userName}
+        onLogout={onLogout}
+      />
+    );
+  }
 
   // If user selected Chat, render the dedicated Ashvi Chat Room experience
   if (activeTab === "chat") {

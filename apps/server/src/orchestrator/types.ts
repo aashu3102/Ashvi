@@ -1,9 +1,12 @@
-import type { ChatTurn } from "../ai/provider.js";
+import type { ChatTurn, GeneratedImageItem, SearchSource } from "../ai/provider.js";
 
 export type TaskIntent =
   | "general_conversation"
   | "coding"
   | "research"
+  | "web_research"
+  | "image_generation"
+  | "notebook_query"
   | "document_analysis"
   | "creative_writing"
   | "data_analysis"
@@ -88,6 +91,9 @@ export type OrchestratorTask = {
     content: string;
     finishReason?: string;
   };
+  searchUsed?: boolean;
+  sources?: SearchSource[];
+  images?: GeneratedImageItem[];
   verification: OrchestratorVerification;
   errors?: TaskError[];
   timestamps: StageTimestamps;
@@ -105,11 +111,17 @@ export type OrchestratorExecuteInput = {
   providerId?: string;
   modelOverride?: string;
   language?: "en" | "hi";
+  enableSearch?: boolean;
+  notebookId?: string;
+  isPrivateOnly?: boolean;
 };
 
 export type OrchestratorStreamEvent =
   | { type: "stage"; stage: string; details?: Record<string, unknown> }
   | { type: "memory_suggestion"; suggestion: string }
   | { type: "chunk"; content: string }
+  | { type: "sources"; sources: SearchSource[] }
+  | { type: "image"; image: GeneratedImageItem }
   | { type: "done"; assistant?: unknown; task: OrchestratorTask }
   | { type: "error"; error: string; code?: string };
+

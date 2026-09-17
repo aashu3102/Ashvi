@@ -1,7 +1,21 @@
 import type { AIProvider, ChatTurn } from "./provider.js";
 
 export class OllamaProvider implements AIProvider {
+  public readonly id = "qwen";
+  public readonly name = "Local Qwen (Ollama)";
+
   constructor(private readonly baseUrl: string, private readonly model: string) {}
+
+  async isAvailable(): Promise<boolean> {
+    try {
+      const res = await fetch(`${this.baseUrl}/api/tags`, {
+        signal: AbortSignal.timeout(2000),
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  }
 
   async chat(messages: ChatTurn[]) {
     const response = await fetch(`${this.baseUrl}/api/chat`, {

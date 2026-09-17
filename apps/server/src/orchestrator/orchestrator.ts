@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { FastifyBaseLogger } from "fastify";
-import type { AIProvider } from "../ai/provider.js";
+import type { AIProvider, ProviderChatResult, ProviderStreamChunk, SearchSource } from "../ai/provider.js";
 import { classifyIntent } from "./intent-classifier.js";
 import { buildOrchestratorContext } from "./context-builder.js";
 import { planTask } from "./task-planner.js";
@@ -94,7 +94,12 @@ export class AshviOrchestrator {
     const plannedAt = new Date().toISOString();
 
     // 4. Model/Provider Routing
-    const route = this.registry.route(classification.intent, input.providerId, input.modelOverride);
+    const route = this.registry.route(
+      classification.intent,
+      input.providerId,
+      input.modelOverride,
+      { enableSearch: input.enableSearch, isPrivateOnly: input.isPrivateOnly }
+    );
     const routedAt = new Date().toISOString();
 
     const task: OrchestratorTask = {
@@ -169,7 +174,11 @@ export class AshviOrchestrator {
     this.logger.logIntentClassified(task);
     this.logger.logTaskPlanned(task);
 
-    const route = this.registry.route(task.intent, input.providerId, input.modelOverride);
+    const enableSearch = Boolean(input.enableSearch || task.intent === "web_research");
+    let route = this.registry.route(task.intent, input.providerId, input.modelOverride, {
+      enableSearch,
+      isPrivateOnly: input.isPrivateOnly,
+    });
     this.logger.logProviderRouted(task, route.reason);
 
     task.executionState = "executing";
@@ -177,9 +186,49 @@ export class AshviOrchestrator {
     const startTime = Date.now();
 
     try {
-      const content = await route.provider.chat(task.context.recentMessages);
+      let content = "";
+      if (task.intent === "image_generation" && typeof route.provider.generateImage === "function") {
+        const imgResult = await route.provider.generateImage({ prompt: input.prompt });
+        task.images = imgResult.images;
+        content = `I have generated an image for you: "${input.prompt}".`;
+      } else {
+        let chatOutput: string | ProviderChatResult;
+        try {
+          chatOutput = await route.provider.chat(task.context.recentMessages, { enableSearch });
+        } catch (initialErr) {
+          // Failover to secondary provider if available and privacy-safe
+          const fallback = this.registry.getFallback(route.providerId, input.isPrivateOnly);
+          if (fallback) {
+            this.logger.logProviderRouted(
+              task,
+              `Primary provider "${route.providerId}" failed. Gracefully falling over to "${fallback.id}".`
+            );
+            route = {
+              providerId: fallback.id,
+              model: fallback.defaultModel,
+              provider: fallback.provider,
+              reason: "Failover after primary provider failure",
+            };
+            task.selectedProvider = fallback.id;
+            chatOutput = await route.provider.chat(task.context.recentMessages, { enableSearch });
+          } else {
+            throw initialErr;
+          }
+        }
+
+        if (typeof chatOutput === "object" && chatOutput !== null) {
+          content = chatOutput.content;
+          if (chatOutput.sources && chatOutput.sources.length > 0) {
+            task.sources = chatOutput.sources;
+            task.searchUsed = true;
+          }
+        } else {
+          content = String(chatOutput ?? "");
+        }
+      }
+
       if (!content || !content.trim()) {
-        throw new Error("Local AI provider returned an empty response.");
+        throw new Error("AI provider returned an empty response.");
       }
 
       const durationMs = Date.now() - startTime;
@@ -263,6 +312,7 @@ export class AshviOrchestrator {
       const requiresDocs =
         initialIntent === "document_analysis" ||
         initialIntent === "data_analysis" ||
+        initialIntent === "notebook_query" ||
         (input.documentIds && input.documentIds.length > 0) ||
         /\b(?:document|file|report|pdf|docx|spreadsheet|notes|attachment|data|section|page)\b/i.test(input.prompt);
 
@@ -289,7 +339,11 @@ export class AshviOrchestrator {
       details: { intent: task.intent, confidence: task.classification.confidence },
     };
 
-    const route = this.registry.route(task.intent, input.providerId, input.modelOverride);
+    const enableSearch = Boolean(input.enableSearch || task.intent === "web_research");
+    let route = this.registry.route(task.intent, input.providerId, input.modelOverride, {
+      enableSearch,
+      isPrivateOnly: input.isPrivateOnly,
+    });
     this.logger.logProviderRouted(task, route.reason);
 
     task.executionState = "executing";
@@ -299,18 +353,103 @@ export class AshviOrchestrator {
     let fullContent = "";
 
     try {
-      if (route.provider.chatStream) {
-        for await (const chunk of route.provider.chatStream(task.context.recentMessages)) {
-          fullContent += chunk;
-          yield { type: "chunk", content: chunk };
+      if (task.intent === "image_generation" && typeof route.provider.generateImage === "function") {
+        yield { type: "chunk", content: "Generating your image with Nano Banana..." };
+        const imgResult = await route.provider.generateImage({ prompt: input.prompt });
+        task.images = imgResult.images;
+        for (const img of imgResult.images) {
+          yield { type: "image", image: img };
         }
+        fullContent = `I have generated an image for you: "${input.prompt}".`;
       } else {
-        fullContent = await route.provider.chat(task.context.recentMessages);
-        yield { type: "chunk", content: fullContent };
+        let streamIter: AsyncIterable<string | ProviderStreamChunk> | null = null;
+        try {
+          if (route.provider.chatStream) {
+            streamIter = route.provider.chatStream(task.context.recentMessages, { enableSearch });
+          }
+        } catch (streamInitErr) {
+          const fallback = this.registry.getFallback(route.providerId, input.isPrivateOnly);
+          if (fallback && fallback.provider.chatStream) {
+            this.logger.logProviderRouted(
+              task,
+              `Primary stream failed. Gracefully falling over to "${fallback.id}".`
+            );
+            route = {
+              providerId: fallback.id,
+              model: fallback.defaultModel,
+              provider: fallback.provider,
+              reason: "Failover after primary stream initialization failure",
+            };
+            task.selectedProvider = fallback.id;
+            streamIter = fallback.provider.chatStream(task.context.recentMessages, { enableSearch });
+          } else {
+            throw streamInitErr;
+          }
+        }
+
+        if (streamIter) {
+          for await (const rawChunk of streamIter) {
+            let chunkText = "";
+            let chunkSources: SearchSource[] | undefined;
+            if (typeof rawChunk === "object" && rawChunk !== null) {
+              chunkText = rawChunk.content || "";
+              chunkSources = rawChunk.sources;
+            } else {
+              chunkText = String(rawChunk ?? "");
+            }
+
+            if (chunkSources && chunkSources.length > 0) {
+              task.sources = chunkSources;
+              task.searchUsed = true;
+              yield { type: "sources", sources: chunkSources };
+            }
+
+            if (chunkText) {
+              fullContent += chunkText;
+              yield { type: "chunk", content: chunkText };
+            }
+          }
+        } else {
+          // Fallback to standard chat if stream is unsupported
+          let chatOutput: string | ProviderChatResult;
+          try {
+            chatOutput = await route.provider.chat(task.context.recentMessages, { enableSearch });
+          } catch (chatErr) {
+            const fallback = this.registry.getFallback(route.providerId, input.isPrivateOnly);
+            if (fallback) {
+              this.logger.logProviderRouted(
+                task,
+                `Primary provider failed. Gracefully falling over to "${fallback.id}".`
+              );
+              route = {
+                providerId: fallback.id,
+                model: fallback.defaultModel,
+                provider: fallback.provider,
+                reason: "Failover after primary chat failure",
+              };
+              task.selectedProvider = fallback.id;
+              chatOutput = await route.provider.chat(task.context.recentMessages, { enableSearch });
+            } else {
+              throw chatErr;
+            }
+          }
+
+          if (typeof chatOutput === "object" && chatOutput !== null) {
+            fullContent = chatOutput.content;
+            if (chatOutput.sources && chatOutput.sources.length > 0) {
+              task.sources = chatOutput.sources;
+              task.searchUsed = true;
+              yield { type: "sources", sources: chatOutput.sources };
+            }
+          } else {
+            fullContent = String(chatOutput ?? "");
+          }
+          yield { type: "chunk", content: fullContent };
+        }
       }
 
       if (!fullContent.trim()) {
-        throw new Error("Local AI provider returned an empty response.");
+        throw new Error("AI provider returned an empty response.");
       }
 
       const durationMs = Date.now() - startTime;

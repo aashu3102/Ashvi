@@ -10,9 +10,9 @@ describe("Daily Tasks Service", () => {
         upsert: async () => ({ id: "user-123" }),
       },
       userSettings: {
-        upsert: async (args: { update?: { preferences?: any }; create?: { preferences?: any } }) => {
+        upsert: async (args: { update?: { preferences?: unknown }; create?: { preferences?: unknown } }) => {
           if (args.update?.preferences) {
-            storedPreferences = args.update.preferences;
+            storedPreferences = args.update.preferences as Record<string, unknown>;
           }
           return {
             id: "settings-1",
@@ -21,7 +21,7 @@ describe("Daily Tasks Service", () => {
           };
         },
       },
-    } as any;
+    } as unknown as Parameters<typeof listTasks>[0];
 
     // 1. Initially empty
     const initial = await listTasks(mockDb, "user-123");

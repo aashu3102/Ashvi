@@ -7,6 +7,8 @@ import { prismaPlugin } from "../database/prisma.plugin.js";
 import { healthRoutes } from "../routes/health.routes.js";
 import { conversationRoutes } from "../routes/conversation.routes.js";
 import { documentRoutes } from "../routes/document.routes.js";
+import { notebookRoutes } from "../routes/notebook.routes.js";
+import { imageRoutes } from "../routes/image.routes.js";
 import { memoryRoutes } from "../routes/memory.routes.js";
 import { settingsRoutes } from "../routes/settings.routes.js";
 import { taskRoutes } from "../routes/task.routes.js";
@@ -81,8 +83,10 @@ export function buildApp(
 
   app.register(multipart, { limits: { files: 1, fileSize: 10 * 1024 * 1024 } });
   if ((options.withDatabase ?? true) && (environment.NODE_ENV !== "test" || options.withAuth)) app.register(authPlugin, { environment });
-  app.register(healthRoutes);
+  app.register(healthRoutes, { environment });
   app.register(authRoutes, { environment });
+  app.register(imageRoutes, { environment });
+  app.register(notebookRoutes, { orchestrator: options.orchestrator });
   app.register(voiceRoutes, { environment, voiceService: options.voiceService, orchestrator: options.orchestrator });
   app.register(conversationRoutes, { environment, provider: options.provider, orchestrator: options.orchestrator });
   app.register(memoryRoutes);

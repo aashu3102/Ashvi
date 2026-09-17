@@ -4,6 +4,7 @@ import { useState } from "react";
 import {
   Home,
   MessageSquare,
+  BookOpen,
   Search,
   Code2,
   FileText,
@@ -42,6 +43,7 @@ export function LeftSidebar({
   const mainNav = [
     { key: "home", label: "Home", icon: Home },
     { key: "chat", label: "Chat", icon: MessageSquare },
+    { key: "notebook", label: "Notebook", icon: BookOpen },
     { key: "research", label: "Research", icon: Search },
     { key: "build", label: "Build", icon: Code2 },
     { key: "documents", label: "Documents", icon: FileText },

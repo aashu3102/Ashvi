@@ -9,6 +9,63 @@ interface IntentRule {
 
 const INTENT_RULES: IntentRule[] = [
   {
+    intent: "image_generation",
+    patterns: [
+      /\b(?:create|generate|draw|paint|render|make)\s+(?:an?\s+)?(?:image|picture|photo|illustration|artwork|drawing|render)\b/i,
+      /\bimage\s+of\b/i,
+      /\bpicture\s+of\b/i,
+    ],
+    keywords: [
+      "create an image",
+      "generate an image",
+      "generate a picture",
+      "draw a picture",
+      "draw an image",
+      "image of",
+      "picture of",
+      "image generation",
+    ],
+    weight: 1.6,
+  },
+  {
+    intent: "web_research",
+    patterns: [
+      /\b(?:search\s+(?:the\s+)?(?:web|internet|google)|look\s+up\s+online|find\s+online)\b/i,
+      /\b(?:latest|recent|current)\s+(?:news|developments|status|updates|information|articles|breakthroughs)\b/i,
+      /\bwhat\s+happened\s+(?:today|recently|this\s+week|in\s+the\s+news)\b/i,
+      /\b(?:who\s+won|score\s+of|weather\s+in|stock\s+price\s+of)\b/i,
+      /\bresearch\s+(?:the\s+)?(?:latest|current|recent|newest)\b/i,
+    ],
+    keywords: [
+      "search the web",
+      "search online",
+      "google search",
+      "latest news",
+      "recent news",
+      "what happened today",
+      "current information",
+      "latest developments",
+      "recent developments",
+      "web research",
+    ],
+    weight: 1.5,
+  },
+  {
+    intent: "notebook_query",
+    patterns: [
+      /\b(?:in|from|across)\s+(?:this|my)\s+notebook\b/i,
+      /\bnotebook\s+(?:sources|notes|documents|summary)\b/i,
+    ],
+    keywords: [
+      "in this notebook",
+      "notebook query",
+      "my notebook",
+      "notebook notes",
+      "notebook sources",
+    ],
+    weight: 1.4,
+  },
+  {
     intent: "document_analysis",
     patterns: [
       /\b(?:in|from|summarize|analyze|review|check)\s+(?:the\s+)?(?:uploaded\s+)?(?:document|file|pdf|text|attachment|doc|notes)\b/i,

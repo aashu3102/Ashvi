@@ -4,10 +4,28 @@ import { useEffect, useRef } from "react";
 import { X, Volume2, Sparkles, Send, Mic, Square } from "lucide-react";
 import type { VoiceLanguage, VoiceState } from "@/lib/use-ashvi-voice";
 
+export type SearchSource = {
+  title?: string;
+  url: string;
+  snippet?: string;
+};
+
+export type GeneratedImage = {
+  url: string;
+  mimeType?: string;
+  base64?: string;
+};
+
 export type ChatMessage = {
   id: string;
   role: string;
   content: string;
+  metadata?: {
+    sources?: SearchSource[];
+    images?: GeneratedImage[];
+    intent?: string;
+    [key: string]: unknown;
+  } | null;
 };
 
 interface Props {
