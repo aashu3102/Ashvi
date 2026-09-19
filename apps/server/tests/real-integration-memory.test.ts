@@ -11,6 +11,9 @@ const mockMemoryProvider = {
     if (allText.includes("Nimbus")) {
       return "The secret architecture code name is Project Nimbus.";
     }
+    if (allText.includes("8601") || allText.toLowerCase().includes("timestamp")) {
+      return "All API routes must return ISO 8601 UTC timestamps.";
+    }
     return "I do not have access to that information.";
   },
   async *chatStream(messages: any[]) {
@@ -21,6 +24,14 @@ const mockMemoryProvider = {
     return true;
   },
 };
+
+let app: ReturnType<typeof buildApp>;
+let userACookie = "";
+let userBCookie = "";
+const testCode = "test-code";
+const testPassword = "test-password";
+const userA = `memory-test-a-${Date.now()}`;
+const userB = `memory-test-b-${Date.now()}`;
 
 beforeAll(async () => {
   const [codeHash, passwordHash] = await Promise.all([

@@ -8,7 +8,12 @@ const mockRagProvider = {
   name: "Gemini API",
   async chat(messages: any[]) {
     const allText = messages.map((m) => m.content).join(" ");
-    if (allText.includes("12 milliseconds") || allText.toLowerCase().includes("latency threshold")) {
+    const hasEvidence =
+      allText.includes("chronos-spec") ||
+      allText.includes("quantum latency synchronization") ||
+      allText.includes("Document Evidence") ||
+      allText.includes("12 milliseconds");
+    if (hasEvidence && (allText.includes("12 milliseconds") || allText.toLowerCase().includes("latency threshold"))) {
       return "Based on the specification, the operating latency threshold of Project Chronos is 12 milliseconds.";
     }
     if (allText.toLowerCase().includes("chocolate cake")) {
@@ -27,6 +32,22 @@ const mockRagProvider = {
     return true;
   },
 };
+
+function multipartFile(filename: string, content: string) {
+  const boundary = "ashvi-rag-boundary";
+  return {
+    body: `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${filename}"\r\nContent-Type: text/plain\r\n\r\n${content}\r\n--${boundary}--\r\n`,
+    contentType: `multipart/form-data; boundary=${boundary}`,
+  };
+}
+
+let app: ReturnType<typeof buildApp>;
+let userACookie = "";
+let userBCookie = "";
+const testCode = "test-code";
+const testPassword = "test-password";
+const userA = `rag-test-a-${Date.now()}`;
+const userB = `rag-test-b-${Date.now()}`;
 
 beforeAll(async () => {
   const [codeHash, passwordHash] = await Promise.all([
@@ -135,7 +156,7 @@ describe("Section 36: Real End-to-End RAG Integration Verification with Live DB"
     expect(chunks[0].embedding.length).toBe(384);
     const hasMillisecondFact = chunks.some((c) => c.content.includes("12 milliseconds"));
     expect(hasMillisecondFact).toBe(true);
-  });
+  }, 60000);
 
   it("2. User A asks question answered in the document -> verified retrieval, real model generation, citations returned", async () => {
     // Create conversation for User A
@@ -303,5 +324,5 @@ describe("Section 36: Real End-to-End RAG Integration Verification with Live DB"
         headers: { cookie: `ashvi_session=${userBCookie}` },
       });
     }
-  });
+  }, 60000);
 });

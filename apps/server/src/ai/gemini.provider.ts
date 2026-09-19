@@ -16,6 +16,15 @@ export interface GeminiProviderConfig {
   defaultImageModel?: string;
 }
 
+function normalizeModel(model?: string): string {
+  if (!model) return "gemini-3.6-flash";
+  const trimmed = model.trim();
+  if (trimmed === "gemini-2.5-flash" || trimmed.toLowerCase().includes("qwen") || trimmed.toLowerCase().includes("ollama")) {
+    return "gemini-3.6-flash";
+  }
+  return trimmed;
+}
+
 export class GeminiProvider implements AIProvider {
   public readonly id = "gemini";
   public readonly name = "Gemini API";
@@ -27,7 +36,7 @@ export class GeminiProvider implements AIProvider {
 
   constructor(config: GeminiProviderConfig = {}) {
     this.apiKey = config.apiKey !== undefined ? config.apiKey : (process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY);
-    this.defaultModel = config.defaultModel || "gemini-3.6-flash";
+    this.defaultModel = normalizeModel(config.defaultModel || process.env.GEMINI_MODEL || process.env.ASHVI_AI_MODEL);
     this.defaultImageModel = config.defaultImageModel || "gemini-2.5-flash-image";
 
     if (this.apiKey && this.apiKey.trim()) {
@@ -115,7 +124,7 @@ export class GeminiProvider implements AIProvider {
 
   async chat(messages: ChatTurn[], options: ProviderChatOptions = {}): Promise<ProviderChatResult> {
     const ai = this.ensureClient();
-    const model = options.model || this.defaultModel;
+    const model = normalizeModel(options.model || this.defaultModel);
     const { contents, systemInstruction } = this.formatMessages(messages);
 
     const config: Record<string, unknown> = {};
@@ -161,7 +170,7 @@ export class GeminiProvider implements AIProvider {
     options: ProviderChatOptions = {}
   ): AsyncIterable<ProviderStreamChunk> {
     const ai = this.ensureClient();
-    const model = options.model || this.defaultModel;
+    const model = normalizeModel(options.model || this.defaultModel);
     const { contents, systemInstruction } = this.formatMessages(messages);
 
     const config: Record<string, unknown> = {};
