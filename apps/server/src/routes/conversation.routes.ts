@@ -1,8 +1,8 @@
 import { Readable } from "node:stream";
 import type { FastifyInstance } from "fastify";
 import type { Prisma } from "@prisma/client";
+import { z } from "zod";
 import type { Environment } from "../config/env.js";
-import { OllamaProvider } from "../ai/ollama.provider.js";
 import { GeminiProvider } from "../ai/gemini.provider.js";
 import { createConversationSchema, createMessageSchema, updateConversationSchema } from "@ashvi/shared/schemas";
 import { addAssistantMessage, addUserMessage, createConversation, deleteConversation, getConversation, listConversations, renameConversation } from "../services/conversation.service.js";
@@ -14,49 +14,43 @@ import { AshviOrchestrator, ProviderRegistry, OrchestratorExecutionError, type O
 import { MemoryService } from "../memory/memory.service.js";
 import { DocumentService } from "../rag/document.service.js";
 
+const ephemeralStreamSchema = z.object({
+  messages: z.array(
+    z.object({
+      role: z.enum(["user", "assistant", "system"]),
+      content: z.string(),
+    })
+  ).min(1),
+  language: z.enum(["en", "hi"]).optional(),
+  enableSearch: z.boolean().optional(),
+});
+
 export async function conversationRoutes(app: FastifyInstance, options: { environment: Environment; provider?: AIProvider; orchestrator?: AshviOrchestrator }) {
-  const qwenProvider = options.provider ?? new OllamaProvider(options.environment.OLLAMA_BASE_URL, options.environment.ASHVI_AI_MODEL);
-  const geminiProvider = new GeminiProvider({
+  const geminiProvider = options.provider ?? new GeminiProvider({
     apiKey: options.environment.GEMINI_API_KEY,
     defaultModel: options.environment.GEMINI_MODEL,
     defaultImageModel: options.environment.GEMINI_IMAGE_MODEL,
   });
 
   const registry = new ProviderRegistry();
-  // Primary local intelligence
   registry.register(
     {
-      id: "qwen",
-      name: "Local Qwen (Ollama)",
-      provider: qwenProvider,
-      defaultModel: options.environment.ASHVI_AI_MODEL,
-      supportsStreaming: typeof qwenProvider.chatStream === "function",
-      priority: 10,
+      id: "gemini",
+      name: "Gemini API",
+      provider: geminiProvider,
+      defaultModel: options.environment.GEMINI_MODEL,
+      supportsStreaming: true,
+      priority: 1,
     },
-    options.environment.DEFAULT_AI_PROVIDER !== "gemini"
+    true
   );
-
-  // Cloud Gemini intelligence if configured
-  if (options.environment.GEMINI_API_KEY) {
-    registry.register(
-      {
-        id: "gemini",
-        name: "Gemini API",
-        provider: geminiProvider,
-        defaultModel: options.environment.GEMINI_MODEL,
-        supportsStreaming: true,
-        priority: 5,
-      },
-      options.environment.DEFAULT_AI_PROVIDER === "gemini"
-    );
-  }
 
   const memoryService = app.prisma ? new MemoryService(app.prisma) : undefined;
   const documentService = app.prisma ? new DocumentService(app.prisma) : undefined;
   const orchestrator = options.orchestrator ?? new AshviOrchestrator({
     registry,
-    defaultProvider: qwenProvider,
-    defaultModel: options.environment.ASHVI_AI_MODEL,
+    defaultProvider: geminiProvider,
+    defaultModel: options.environment.GEMINI_MODEL,
     logger: app.log,
     memoryService,
     documentService,
@@ -194,6 +188,78 @@ export async function conversationRoutes(app: FastifyInstance, options: { enviro
         yield `data: ${JSON.stringify({ type: "done", assistant, task: completedTask })}\n\n`;
       } catch (error) {
         request.log.error({ err: error }, "AI streaming response failed");
+        const safeMessage = error instanceof Error && error.message ? error.message : "AI service is temporarily unavailable.";
+        yield `data: ${JSON.stringify({ type: "error", error: safeMessage, code: "AI_UNAVAILABLE" })}\n\n`;
+      }
+    })());
+
+    return reply.type("text/event-stream").send(stream);
+  });
+
+  // Ephemeral streaming for private conversations: zero cloud persistence, zero cloud memory
+  app.post("/api/conversations/ephemeral-stream", async (request, reply) => {
+    const parseResult = ephemeralStreamSchema.safeParse(request.body);
+    if (!parseResult.success) {
+      return reply.code(400).send({
+        error: { code: "VALIDATION_ERROR", message: "Invalid ephemeral stream request.", details: parseResult.error.issues },
+      });
+    }
+
+    const { messages, language, enableSearch } = parseResult.data;
+    const lastUserMessage = [...messages].reverse().find((m) => m.role === "user");
+    const prompt = lastUserMessage?.content || messages[messages.length - 1].content;
+
+    const stream = Readable.from((async function* () {
+      try {
+        let completedTask: OrchestratorTask | null = null;
+        for await (const event of orchestrator.executeStream({
+          requestId: request.id,
+          userId: request.userId ?? undefined,
+          conversationId: "ephemeral-private",
+          prompt,
+          messages: messages.map((m, idx) => ({
+            id: `msg-${idx}`,
+            role: m.role.toUpperCase() as "USER" | "ASSISTANT" | "SYSTEM",
+            content: m.content,
+            createdAt: new Date(),
+          })),
+          language,
+          enableSearch,
+        })) {
+          if (event.type === "chunk") {
+            yield `data: ${JSON.stringify({ type: "chunk", content: event.content })}\n\n`;
+          } else if (event.type === "sources") {
+            yield `data: ${JSON.stringify({ type: "sources", sources: event.sources })}\n\n`;
+          } else if (event.type === "image") {
+            yield `data: ${JSON.stringify({ type: "image", image: event.image })}\n\n`;
+          } else if (event.type === "done") {
+            completedTask = event.task;
+          } else if (event.type === "error") {
+            yield `data: ${JSON.stringify({ type: "error", error: event.error, code: event.code ?? "AI_UNAVAILABLE" })}\n\n`;
+            return;
+          }
+        }
+
+        if (!completedTask?.result?.content?.trim()) {
+          throw new Error("AI provider returned an empty response.");
+        }
+
+        const ephemeralAssistant = {
+          id: `priv-asst-${Date.now()}`,
+          role: "assistant",
+          content: completedTask.result.content,
+          metadata: {
+            verification: completedTask.verification,
+            sources: completedTask.sources,
+            searchUsed: completedTask.searchUsed,
+            images: completedTask.images,
+          },
+          createdAt: new Date().toISOString(),
+        };
+
+        yield `data: ${JSON.stringify({ type: "done", assistant: ephemeralAssistant, task: completedTask })}\n\n`;
+      } catch (error) {
+        request.log.error({ err: error }, "Private AI streaming response failed");
         const safeMessage = error instanceof Error && error.message ? error.message : "AI service is temporarily unavailable.";
         yield `data: ${JSON.stringify({ type: "error", error: safeMessage, code: "AI_UNAVAILABLE" })}\n\n`;
       }

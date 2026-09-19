@@ -1,11 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { MessageSquare, Plus, Search, Trash2, Edit3, X, Check } from "lucide-react";
+import { MessageSquare, Plus, Search, Trash2, Edit3, X, Check, Lock } from "lucide-react";
 
 export interface ConversationItem {
   id: string;
   title: string;
+  isPrivate?: boolean;
   updatedAt?: string | Date;
   createdAt?: string | Date;
   messages?: Array<{
@@ -71,16 +72,15 @@ export function AshviConversationDrawer({
     }
   };
 
-  const confirmDelete = async (id: string, e: React.MouseEvent) => {
+  const handleDelete = async (id: string, e: React.MouseEvent) => {
+    e.preventDefault();
     e.stopPropagation();
-    if (deletingId === id) {
+    if (deletingId) return;
+    setDeletingId(id);
+    try {
       await onDeleteConversation(id);
+    } finally {
       setDeletingId(null);
-    } else {
-      setDeletingId(id);
-      setTimeout(() => {
-        setDeletingId((curr) => (curr === id ? null : curr));
-      }, 4000);
     }
   };
 
@@ -222,6 +222,27 @@ export function AshviConversationDrawer({
                       <>
                         <div className="ashvi-drawer-item-title-row">
                           <span className="ashvi-drawer-item-title">{conv.title || "Conversation"}</span>
+                          {conv.isPrivate && (
+                            <span
+                              className="ashvi-drawer-private-badge"
+                              title="Private local conversation"
+                              style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "3px",
+                                fontSize: "10px",
+                                padding: "1px 5px",
+                                borderRadius: "4px",
+                                background: "rgba(126, 232, 250, 0.12)",
+                                color: "#7ee8fa",
+                                border: "1px solid rgba(126, 232, 250, 0.25)",
+                                marginLeft: "6px",
+                              }}
+                            >
+                              <Lock size={9} />
+                              <span>Private</span>
+                            </span>
+                          )}
                           {timeStr && <span className="ashvi-drawer-item-time">{timeStr}</span>}
                         </div>
                         {latestMsg && (
@@ -245,9 +266,10 @@ export function AshviConversationDrawer({
                       </button>
                       <button
                         type="button"
-                        className={`ashvi-drawer-action-btn delete ${isConfirmingDelete ? "confirm" : ""}`}
-                        onClick={(e) => confirmDelete(conv.id, e)}
-                        title={isConfirmingDelete ? "Click again to confirm delete" : "Delete conversation"}
+                        className={`ashvi-drawer-action-btn delete ${deletingId === conv.id ? "deleting" : ""}`}
+                        onClick={(e) => handleDelete(conv.id, e)}
+                        disabled={deletingId === conv.id}
+                        title={deletingId === conv.id ? "Deleting..." : "Delete conversation"}
                         aria-label="Delete conversation"
                       >
                         <Trash2 size={13} />

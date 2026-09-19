@@ -9,8 +9,7 @@ const environmentSchema = z.object({
   ASHVI_ALLOWED_ORIGINS: z.string().optional(),
   ASHVI_PROXY_SECRET: z.string().min(32).optional(),
   ASHVI_LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).default("info"),
-  ASHVI_AI_MODEL: z.string().default("qwen2.5:3b"),
-  OLLAMA_BASE_URL: z.url().default("http://127.0.0.1:11434"),
+  ASHVI_AI_MODEL: z.string().default("gemini-3.6-flash"),
   ASHVI_STT_COMMAND: z.string().default("faster-whisper"),
   ASHVI_STT_ARGS: z.string().default('["--model","{model}","--language","{language}","--output","{output}","{input}"]'),
   ASHVI_STT_MODEL: z.string().default("small"),
@@ -32,7 +31,7 @@ const environmentSchema = z.object({
   ASHVI_MAX_DOCUMENT_PAGES: z.coerce.number().int().min(1).max(5000).default(800),
   ASHVI_CHUNK_SIZE: z.coerce.number().int().min(50).max(2000).default(350),
   ASHVI_CHUNK_OVERLAP: z.coerce.number().int().min(0).max(500).default(50),
-  ASHVI_EMBEDDING_PROVIDER: z.enum(["local", "ollama"]).default("local"),
+  ASHVI_EMBEDDING_PROVIDER: z.enum(["local"]).default("local"),
   ASHVI_EMBEDDING_DIMENSIONS: z.coerce.number().int().min(16).max(4096).default(384),
   ASHVI_RETRIEVAL_TOP_K: z.coerce.number().int().min(1).max(20).default(4),
   ASHVI_MIN_SIMILARITY: z.coerce.number().min(0).max(1).default(0.15),
@@ -40,8 +39,7 @@ const environmentSchema = z.object({
   GEMINI_MODEL: z.string().default("gemini-3.6-flash"),
   GEMINI_IMAGE_MODEL: z.string().default("gemini-2.5-flash-image"),
   GOOGLE_SEARCH_ENABLED: z.coerce.boolean().default(true),
-  LOCAL_QWEN_ENABLED: z.coerce.boolean().default(true),
-  DEFAULT_AI_PROVIDER: z.enum(["auto", "qwen", "gemini"]).default("auto"),
+  DEFAULT_AI_PROVIDER: z.enum(["gemini"]).default("gemini"),
 });
 
 export type Environment = z.infer<typeof environmentSchema>;
@@ -53,6 +51,7 @@ export function loadEnvironment(input: NodeJS.ProcessEnv = process.env): Environ
     ASHVI_SERVER_PORT: input.ASHVI_SERVER_PORT || input.PORT || "4000",
     ASHVI_SERVER_HOST: input.ASHVI_SERVER_HOST || (isCloudHost ? "0.0.0.0" : "127.0.0.1"),
     GEMINI_API_KEY: input.GEMINI_API_KEY || input.GOOGLE_API_KEY || undefined,
+    DEFAULT_AI_PROVIDER: "gemini",
   };
   return environmentSchema.parse(normalized);
 }

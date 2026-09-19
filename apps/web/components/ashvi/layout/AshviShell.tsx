@@ -13,6 +13,16 @@ import type { ChatMessage } from "../conversation/ActiveChatModal";
 import { parseAshviSseLine } from "@/lib/sse";
 import { getApiBaseUrl, getAuthHeaders } from "@/lib/api";
 import { useAshviVoice } from "@/lib/use-ashvi-voice";
+import { containsPrivateKeyword } from "@/lib/privacy-classifier";
+import {
+  listPrivateConversations,
+  getPrivateConversation,
+  savePrivateConversation,
+  deletePrivateConversation,
+  renamePrivateConversation,
+  appendPrivateMessage,
+  type PrivateStoredConversation,
+} from "@/lib/private-storage";
 import "../ashvi.css";
 
 // Dynamically code-split heavy chat components to optimize initial dashboard bundle
@@ -31,7 +41,12 @@ const ActiveChatModal = dynamic(
   { ssr: false }
 );
 
-type Conversation = { id: string; title: string };
+export type Conversation = {
+  id: string;
+  title: string;
+  isPrivate?: boolean;
+  updatedAt?: string;
+};
 
 interface AshviShellProps {
   userName?: string | null;
@@ -76,15 +91,55 @@ export function AshviShell({ userName = null, onLogout }: AshviShellProps = {}) 
   });
 
 
-  // Load conversations on mount
+  const userKey = userName || "ashvi-default-user";
+
+  // Load conversations on mount (both Cloud and Local IndexedDB for this user)
   useEffect(() => {
-    fetch(`${base}/api/conversations`, { credentials: "include", headers: getAuthHeaders() })
-      .then((res) => (res.ok ? res.json() : []))
-      .then((data) => {
-        if (Array.isArray(data)) setConversations(data);
-      })
-      .catch(() => setError("Ashvi could not load conversations."));
-  }, [base]);
+    let isMounted = true;
+    async function loadAllConversations() {
+      try {
+        const [cloudRes, privateItems] = await Promise.all([
+          fetch(`${base}/api/conversations`, { credentials: "include", headers: getAuthHeaders() })
+            .then((res) => (res.ok ? res.json() : []))
+            .catch(() => []),
+          listPrivateConversations(userKey).catch(() => []),
+        ]);
+
+        if (!isMounted) return;
+
+        const cloudConversations: Conversation[] = Array.isArray(cloudRes)
+          ? cloudRes.map((c: any) => ({
+              id: c.id,
+              title: c.title,
+              isPrivate: false,
+              updatedAt: c.updatedAt,
+            }))
+          : [];
+
+        const privateConversations: Conversation[] = privateItems.map((c) => ({
+          id: c.id,
+          title: c.title,
+          isPrivate: true,
+          updatedAt: c.updatedAt,
+        }));
+
+        const merged = [...privateConversations, ...cloudConversations].sort((a, b) => {
+          const timeA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+          const timeB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+          return timeB - timeA;
+        });
+
+        setConversations(merged);
+      } catch {
+        if (isMounted) setError("Ashvi could not load conversations.");
+      }
+    }
+
+    loadAllConversations();
+    return () => {
+      isMounted = false;
+    };
+  }, [base, userKey]);
 
   // Create new space/conversation
   const handleNewSpace = async () => {
@@ -97,7 +152,13 @@ export function AshviShell({ userName = null, onLogout }: AshviShellProps = {}) 
       });
       if (!res.ok) throw new Error("Ashvi could not create a conversation.");
       const conv = await res.json();
-      setConversations((prev) => [conv, ...prev]);
+      const newConv: Conversation = {
+        id: conv.id,
+        title: conv.title || "New Space",
+        isPrivate: false,
+        updatedAt: conv.updatedAt,
+      };
+      setConversations((prev) => [newConv, ...prev]);
       setError("");
       await openConversation(conv.id, conv.title || "New Space");
       setActiveTab("chat");
@@ -113,6 +174,28 @@ export function AshviShell({ userName = null, onLogout }: AshviShellProps = {}) 
     setMessages([]);
     setStreamText("");
     setError("");
+
+    const isPrivate = conversations.find((c) => c.id === id)?.isPrivate || id.startsWith("priv-");
+
+    if (isPrivate) {
+      try {
+        const stored = await getPrivateConversation(id, userKey);
+        if (stored && Array.isArray(stored.messages)) {
+          setMessages(
+            stored.messages.map((m) => ({
+              id: m.id,
+              role: m.role,
+              content: m.content,
+              metadata: m.metadata,
+            }))
+          );
+          if (stored.title) setActiveTitle(stored.title);
+        }
+      } catch {
+        setError("Ashvi could not open private conversation.");
+      }
+      return;
+    }
 
     try {
       const res = await fetch(`${base}/api/conversations/${id}`, {
@@ -132,14 +215,21 @@ export function AshviShell({ userName = null, onLogout }: AshviShellProps = {}) 
 
   // Rename a conversation
   const handleRenameConversation = async (id: string, newTitle: string) => {
+    const isPrivate = conversations.find((c) => c.id === id)?.isPrivate || id.startsWith("priv-");
+
     try {
-      const res = await fetch(`${base}/api/conversations/${id}`, {
-        method: "PATCH",
-        credentials: "include",
-        headers: getAuthHeaders({ "content-type": "application/json" }),
-        body: JSON.stringify({ title: newTitle }),
-      });
-      if (!res.ok) throw new Error("Could not rename conversation.");
+      if (isPrivate) {
+        await renamePrivateConversation(id, userKey, newTitle);
+      } else {
+        const res = await fetch(`${base}/api/conversations/${id}`, {
+          method: "PATCH",
+          credentials: "include",
+          headers: getAuthHeaders({ "content-type": "application/json" }),
+          body: JSON.stringify({ title: newTitle }),
+        });
+        if (!res.ok) throw new Error("Could not rename conversation.");
+      }
+
       setConversations((prev) =>
         prev.map((c) => (c.id === id ? { ...c, title: newTitle } : c))
       );
@@ -151,21 +241,29 @@ export function AshviShell({ userName = null, onLogout }: AshviShellProps = {}) 
     }
   };
 
-  // Delete a conversation
+  // Delete a conversation (instant 1-click execution)
   const handleDeleteConversation = async (id: string) => {
+    const isPrivate = conversations.find((c) => c.id === id)?.isPrivate || id.startsWith("priv-");
+
+    // Optimistically update UI immediately
+    setConversations((prev) => prev.filter((c) => c.id !== id));
+    if (activeConversationId === id) {
+      setActiveConversationId(null);
+      setActiveTitle("General");
+      setMessages([]);
+      setStreamText("");
+    }
+
     try {
-      const res = await fetch(`${base}/api/conversations/${id}`, {
-        method: "DELETE",
-        credentials: "include",
-        headers: getAuthHeaders(),
-      });
-      if (!res.ok) throw new Error("Could not delete conversation.");
-      setConversations((prev) => prev.filter((c) => c.id !== id));
-      if (activeConversationId === id) {
-        setActiveConversationId(null);
-        setActiveTitle("General");
-        setMessages([]);
-        setStreamText("");
+      if (isPrivate) {
+        await deletePrivateConversation(id, userKey);
+      } else {
+        const res = await fetch(`${base}/api/conversations/${id}`, {
+          method: "DELETE",
+          credentials: "include",
+          headers: getAuthHeaders(),
+        });
+        if (!res.ok) throw new Error("Could not delete conversation.");
       }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Failed to delete conversation.");
@@ -175,6 +273,164 @@ export function AshviShell({ userName = null, onLogout }: AshviShellProps = {}) 
   // Send message and stream response
   const handleSendMessage = async (text: string) => {
     let currentId = activeConversationId;
+    const currentConv = conversations.find((c) => c.id === currentId);
+    const hasKeyword = containsPrivateKeyword(text);
+    const isAlreadyPrivate = Boolean(currentConv?.isPrivate) || (currentId ? currentId.startsWith("priv-") : false);
+    const isPrivate = hasKeyword || isAlreadyPrivate;
+
+    if (isPrivate) {
+      // If no conversation exists or current is cloud-hosted, transition to local private store
+      if (!currentId || !isAlreadyPrivate) {
+        const newPrivId = isAlreadyPrivate && currentId ? currentId : `priv-conv-${Date.now()}`;
+        const previousMessages = currentId && !isAlreadyPrivate ? [...messages] : [];
+
+        // Purge cloud copy from server immediately
+        if (currentId && !isAlreadyPrivate) {
+          fetch(`${base}/api/conversations/${currentId}`, {
+            method: "DELETE",
+            credentials: "include",
+            headers: getAuthHeaders(),
+          }).catch(() => {});
+        }
+
+        const privRecord: PrivateStoredConversation = {
+          id: newPrivId,
+          userId: userKey,
+          title: (currentId && !isAlreadyPrivate ? activeTitle : "") || text.slice(0, 30).trim() || "Private Space",
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          messages: previousMessages.map((m) => ({
+            id: m.id,
+            role: (m.role === "user" || m.role === "assistant" || m.role === "system" ? m.role : "user") as "user" | "assistant" | "system",
+            content: m.content,
+            createdAt: new Date().toISOString(),
+            metadata: (m.metadata as Record<string, unknown>) || undefined,
+          })),
+          isPrivate: true,
+        };
+
+        await savePrivateConversation(privRecord);
+        currentId = newPrivId;
+        setActiveConversationId(newPrivId);
+        setActiveTitle(privRecord.title);
+        setConversations((prev) => [
+          { id: newPrivId, title: privRecord.title, isPrivate: true, updatedAt: privRecord.updatedAt },
+          ...prev.filter((c) => c.id !== newPrivId && c.id !== activeConversationId),
+        ]);
+      }
+
+      // Add user message to UI and local storage
+      const userMessage: ChatMessage = {
+        id: `msg-${Date.now()}`,
+        role: "user",
+        content: text,
+      };
+      setMessages((prev) => [...prev, userMessage]);
+      await appendPrivateMessage(currentId, userKey, {
+        id: userMessage.id,
+        role: "user",
+        content: text,
+        createdAt: new Date().toISOString(),
+      });
+
+      setActiveTab("chat");
+      setIsStreaming(true);
+      setStreamText("");
+      setError("");
+
+      try {
+        const payloadMessages = [...messages, userMessage].map((m) => ({
+          role: m.role as "user" | "assistant" | "system",
+          content: m.content,
+        }));
+
+        const response = await fetch(`${base}/api/conversations/ephemeral-stream`, {
+          method: "POST",
+          credentials: "include",
+          headers: getAuthHeaders({ "content-type": "application/json" }),
+          body: JSON.stringify({ messages: payloadMessages, language: voice.voiceLanguage }),
+        });
+
+        if (!response.ok || !response.body) {
+          const payload = await response.json().catch(() => null) as { error?: { message?: string } } | null;
+          throw new Error(payload?.error?.message ?? "AI service is temporarily unavailable.");
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        let completedAssistant: ChatMessage | null = null;
+        let streamSources: any[] = [];
+        let streamImages: any[] = [];
+        let streamError = "";
+
+        const consumeEvent = (line: string) => {
+          const parsed = parseAshviSseLine(line) as {
+            type?: string;
+            content?: string;
+            assistant?: ChatMessage;
+            sources?: any[];
+            images?: any[];
+            error?: string;
+          } | null;
+          if (!parsed) return;
+
+          try {
+            if (parsed.type === "chunk" && parsed.content) {
+              setStreamText((current) => current + parsed.content);
+            } else if (parsed.type === "sources" && Array.isArray(parsed.sources)) {
+              streamSources = parsed.sources;
+            } else if (parsed.type === "image" && Array.isArray(parsed.images)) {
+              streamImages = parsed.images;
+            } else if (parsed.type === "done" && parsed.assistant) {
+              completedAssistant = parsed.assistant;
+            } else if (parsed.type === "error") {
+              streamError = parsed.error ?? "AI service is temporarily unavailable.";
+            }
+          } catch {
+            streamError = "Ashvi returned an invalid streaming response.";
+          }
+        };
+
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+          for (const line of lines) consumeEvent(line);
+        }
+
+        consumeEvent(buffer);
+        if (streamError) throw new Error(streamError);
+        const assistant = completedAssistant as ChatMessage | null;
+        if (!assistant?.content?.trim()) throw new Error("Ashvi returned an empty response.");
+
+        if (streamSources.length > 0 || streamImages.length > 0) {
+          assistant.metadata = {
+            ...(assistant.metadata || {}),
+            ...(streamSources.length > 0 && !assistant.metadata?.sources ? { sources: streamSources } : {}),
+            ...(streamImages.length > 0 && !assistant.metadata?.images ? { images: streamImages } : {}),
+          };
+        }
+
+        await appendPrivateMessage(currentId, userKey, {
+          id: assistant.id,
+          role: "assistant",
+          content: assistant.content,
+          createdAt: new Date().toISOString(),
+          metadata: (assistant.metadata as Record<string, unknown>) || undefined,
+        });
+
+        setMessages((prev) => [...prev, assistant]);
+        setStreamText("");
+      } catch (cause) {
+        setError(cause instanceof Error ? cause.message : "AI service is temporarily unavailable.");
+      } finally {
+        setIsStreaming(false);
+      }
+      return;
+    }
 
     if (!currentId) {
       try {
@@ -312,6 +568,9 @@ export function AshviShell({ userName = null, onLogout }: AshviShellProps = {}) 
     }
   };
 
+  const activeConv = conversations.find((c) => c.id === activeConversationId);
+  const isCurrentPrivate = Boolean(activeConv?.isPrivate) || (activeConversationId ? activeConversationId.startsWith("priv-") : false);
+
   // If user selected Notebook, render dedicated Notebook workspace
   if (activeTab === "notebook") {
     return (
@@ -332,6 +591,7 @@ export function AshviShell({ userName = null, onLogout }: AshviShellProps = {}) 
         activeConversationId={activeConversationId}
         activeTitle={activeTitle}
         conversations={conversations}
+        isPrivate={isCurrentPrivate}
         onSelectConversation={(id) => {
           const found = conversations.find((c) => c.id === id);
           openConversation(id, found?.title);

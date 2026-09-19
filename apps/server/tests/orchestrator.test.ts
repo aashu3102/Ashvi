@@ -36,10 +36,10 @@ const mockRiskyProvider: AIProvider = {
 
 const mockFailingProvider: AIProvider = {
   async chat() {
-    throw new Error("Local Ollama connection failed: connection refused on port 11434");
+    throw new Error("AI provider upstream error: network unreachable");
   },
   async *chatStream() {
-    throw new Error("Local Ollama connection failed: connection refused on port 11434");
+    throw new Error("AI provider upstream error: network unreachable");
   },
 };
 
@@ -100,7 +100,7 @@ beforeAll(async () => {
     payload: { username: userB, code: testCode, password: testPassword },
   });
   userBCookie = loginB.cookies.find((c) => c.name === "ashvi_session")?.value ?? "";
-});
+}, 60000);
 
 afterAll(async () => {
   if (app) await app.close();
@@ -108,14 +108,14 @@ afterAll(async () => {
     await authApp.prisma.user.deleteMany({ where: { username: { in: [userA, userB] } } });
     await authApp.close();
   }
-});
+}, 60000);
 
 describe("Ashvi Core Orchestrator", () => {
   // Test 1: Simple Conversation
   it("1. classifies and executes a simple general conversation via the fast path", async () => {
     const orchestrator = new AshviOrchestrator({
       defaultProvider: mockEchoProvider,
-      defaultModel: "qwen2.5:3b",
+      defaultModel: "gemini-2.5-flash",
     });
 
     const prompt = "Hello Ashvi, good morning! How are you today?";
@@ -316,7 +316,7 @@ describe("Ashvi Core Orchestrator", () => {
 
     await failingApp.close();
     await app.inject({ method: "DELETE", url: `/api/conversations/${convId}` });
-  });
+  }, 30000);
 
   // Test 8: Verification Failure
   it("8. detects risky unverified claims and marks verification state as failed", async () => {
@@ -399,5 +399,5 @@ describe("Ashvi Core Orchestrator", () => {
       url: `/api/conversations/${convIdA}`,
       headers: { cookie: `ashvi_session=${userACookie}` },
     });
-  });
+  }, 30000);
 });

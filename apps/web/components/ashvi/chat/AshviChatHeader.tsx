@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, Menu } from "lucide-react";
+import { ArrowLeft, Lock, Menu } from "lucide-react";
 import { VoiceLanguage, VoiceState } from "@/lib/use-ashvi-voice";
 import { AshviPresenceIndicator } from "./AshviPresenceIndicator";
 
@@ -12,6 +12,7 @@ interface Props {
   voiceState: VoiceState;
   isStreaming: boolean;
   title?: string;
+  isPrivate?: boolean;
 }
 
 export function AshviChatHeader({
@@ -22,6 +23,7 @@ export function AshviChatHeader({
   voiceState,
   isStreaming,
   title,
+  isPrivate,
 }: Props) {
   return (
     <header className="ashvi-chat-top-bar" aria-label="Conversation controls">
@@ -53,6 +55,27 @@ export function AshviChatHeader({
           <div className="ashvi-chat-active-title" title={title}>
             <span className="ashvi-title-dot" />
             <span className="ashvi-title-text">{title}</span>
+            {isPrivate && (
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "4px",
+                  fontSize: "11px",
+                  fontWeight: 500,
+                  padding: "2px 7px",
+                  borderRadius: "6px",
+                  background: "rgba(126, 232, 250, 0.14)",
+                  color: "#7ee8fa",
+                  border: "1px solid rgba(126, 232, 250, 0.3)",
+                  marginLeft: "8px",
+                }}
+                title="Private Session: Stored locally in browser. Processed via Cloud AI."
+              >
+                <Lock size={10} />
+                <span>Private</span>
+              </span>
+            )}
           </div>
         )}
       </div>

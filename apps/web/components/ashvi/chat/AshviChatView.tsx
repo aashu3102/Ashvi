@@ -35,6 +35,7 @@ interface Props {
   onNewSpace: () => void;
   onUploadFile?: (file: File) => void;
   onLogout?: () => void;
+  isPrivate?: boolean;
 }
 
 export function AshviChatView({
@@ -43,6 +44,7 @@ export function AshviChatView({
   activeConversationId,
   activeTitle,
   conversations,
+  isPrivate,
   onSelectConversation,
   onRenameConversation,
   onDeleteConversation,
@@ -112,6 +114,7 @@ export function AshviChatView({
           voiceState={voiceState}
           isStreaming={isStreaming}
           title={activeTitle}
+          isPrivate={isPrivate}
         />
 
         {/* Center Conversation Stage */}

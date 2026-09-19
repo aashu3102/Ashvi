@@ -24,7 +24,6 @@ afterAll(async () => {
 
 describe("conversation API", () => {
   it("creates, reads, renames, messages, and deletes a conversation", async () => {
-    // Local Ollama responses take longer than the default Vitest timeout on a small CPU-only setup.
     const created = await app.inject({ method: "POST", url: "/api/conversations", payload: { title: "Test conversation" } });
     expect(created.statusCode).toBe(201);
     const id = created.json().id as string;
@@ -57,6 +56,30 @@ describe("conversation API", () => {
     const loaded = await app.inject({ method: "GET", url: `/api/conversations/${id}` });
     expect(loaded.json().messages.at(-1).content.trim()).toBe(done.assistant.content.trim());
   }, 30000);
+
+  it("streams private messages via ephemeral-stream with zero database retention", async () => {
+    const stream = await app.inject({
+      method: "POST",
+      url: "/api/conversations/ephemeral-stream",
+      payload: {
+        messages: [{ role: "user", content: "Barbie and Shambhavi ephemeral test" }],
+        language: "en",
+      },
+    });
+
+    expect(stream.statusCode).toBe(200);
+    expect(stream.headers["content-type"]).toContain("text/event-stream");
+    const events = stream.payload.split("\n\n").filter(Boolean).map((event) => JSON.parse(event.replace(/^data:\s*/, "")));
+    const chunks = events.filter((event: { type?: string }) => event.type === "chunk");
+    const done = events.find((event: { type?: string }) => event.type === "done");
+    expect(chunks.length).toBeGreaterThan(0);
+    expect(done?.assistant?.content?.trim()).toBeTruthy();
+
+    // Verify zero database persistence for this conversation
+    const convs = await app.inject({ method: "GET", url: "/api/conversations" });
+    const list = convs.json();
+    expect(list.some((c: { title: string }) => c.title?.includes("Barbie"))).toBe(false);
+  });
 
   it("reports provider failure without persisting a false assistant response", async () => {
     const created = await failingApp.inject({ method: "POST", url: "/api/conversations", payload: {} });

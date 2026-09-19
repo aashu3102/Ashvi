@@ -30,7 +30,7 @@ export class OrchestratorExecutionError extends Error {
 
 export function formatUserSafeError(
   error: unknown,
-  attemptedProviders: string[] = []
+  _attemptedProviders: string[] = []
 ): { message: string; code: string } {
   const rawMessage = error instanceof Error ? error.message : String(error ?? "");
   const lower = rawMessage.toLowerCase();
@@ -53,40 +53,30 @@ export function formatUserSafeError(
     lower.includes("api_key") ||
     lower.includes("unauthenticated") ||
     lower.includes("permission_denied") ||
-    lower.includes("invalid_api_key")
+    lower.includes("invalid_api_key") ||
+    lower.includes("not configured")
   ) {
     return {
-      message: "Cloud AI service authentication failed. Please verify configuration.",
+      message: "Your AI service authentication is unavailable.",
       code: "AI_AUTH_FAILED",
     };
   }
 
-  // Both attempted and failed
-  if (attemptedProviders.includes("qwen") && attemptedProviders.includes("gemini")) {
+  // Network failure
+  if (
+    lower.includes("econnrefused") ||
+    lower.includes("enotfound") ||
+    lower.includes("fetch failed") ||
+    lower.includes("network")
+  ) {
     return {
-      message: "AI providers are currently unavailable. Please try again in a moment.",
-      code: "AI_UNAVAILABLE",
-    };
-  }
-
-  // Only local attempted
-  if (attemptedProviders.length === 1 && attemptedProviders[0] === "qwen") {
-    return {
-      message: "Local AI is temporarily unavailable. Please make sure Ollama is running.",
-      code: "AI_UNAVAILABLE",
-    };
-  }
-
-  // Only cloud attempted
-  if (attemptedProviders.length === 1 && attemptedProviders[0] === "gemini") {
-    return {
-      message: "Cloud AI is temporarily unavailable. Please try again in a moment.",
+      message: "Ashvi could not reach the AI service. Check your connection and try again.",
       code: "AI_UNAVAILABLE",
     };
   }
 
   return {
-    message: "AI providers are currently unavailable. Please try again in a moment.",
+    message: "Ashvi could not connect to the AI service. Please try again.",
     code: "AI_UNAVAILABLE",
   };
 }
@@ -119,9 +109,9 @@ export class AshviOrchestrator {
       this.registry.register(
         {
           id: "default",
-          name: "Default Local Provider",
+          name: "Default Provider",
           provider: options.defaultProvider,
-          defaultModel: options.defaultModel ?? "qwen2.5:3b",
+          defaultModel: options.defaultModel ?? "gemini-3.6-flash",
           supportsStreaming: typeof options.defaultProvider.chatStream === "function",
         },
         true

@@ -4,8 +4,9 @@ Ashvi presents one assistant identity while keeping its internal capabilities re
 
 Core flow:
 
-Web app -> Fastify API -> Conversation service -> AI provider -> Ollama
-                   -> Prisma/PostgreSQL
+Web app -> Fastify API -> Conversation service -> AI provider -> Google Gemini
+                   -> Prisma/PostgreSQL (Cloud)
+                   -> IndexedDB (`ashvi_private_db`) (Local Private Isolation)
                    -> Memory service
                    -> Settings service
                    -> Verification service
@@ -15,7 +16,8 @@ Web app -> Fastify API -> Conversation service -> AI provider -> Ollama
 - Routes handle HTTP contracts and validation.
 - Services handle business logic and persistence.
 - Providers hide model-specific logic behind shared interfaces.
-- Prisma is the persistence layer for conversation, memory, and settings data.
+- Prisma is the persistence layer for cloud conversation, memory, and settings data.
+- IndexedDB (`ashvi_private_db`) is the strictly local client persistence layer for private conversations.
 - Verification sits beside the model outputs to reduce fabricated or unsupported claims.
 
 ## Current implementation status
@@ -25,7 +27,7 @@ The foundation now includes:
 - Next.js frontend shell and chat UI
 - Fastify app with structured error handling and CORS
 - Prisma-based database models for conversations, messages, memory, documents, and settings
-- Ollama-backed local AI provider abstraction
+- Gemini-backed cloud AI provider abstraction (with Google Search Grounding and image generation)
 - Conversation CRUD and assistant response persistence
 - Ranked memory retrieval, editable memory records, and chat-based memory suggestions
 - Upload pipeline with asynchronous extraction for PDF, DOCX, TXT, and Markdown files

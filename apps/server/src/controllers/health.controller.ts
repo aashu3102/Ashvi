@@ -1,6 +1,5 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import type { Environment } from "../config/env.js";
-import { OllamaProvider } from "../ai/ollama.provider.js";
 import { GeminiProvider } from "../ai/gemini.provider.js";
 
 export async function getHealth(_request: FastifyRequest, reply: FastifyReply) {
@@ -27,9 +26,6 @@ export async function getProviderHealth(
     }
   }
 
-  const qwen = new OllamaProvider(environment.OLLAMA_BASE_URL, environment.ASHVI_AI_MODEL);
-  const qwenAvailable = await qwen.isAvailable().catch(() => false);
-
   const gemini = new GeminiProvider({
     apiKey: environment.GEMINI_API_KEY,
   });
@@ -41,10 +37,6 @@ export async function getProviderHealth(
     service: "ashvi-server",
     database: dbHealthy ? "ready" : "unhealthy",
     providers: {
-      qwen: {
-        configured: environment.LOCAL_QWEN_ENABLED,
-        available: qwenAvailable,
-      },
       gemini: {
         configured: geminiConfigured,
         available: geminiAvailable,

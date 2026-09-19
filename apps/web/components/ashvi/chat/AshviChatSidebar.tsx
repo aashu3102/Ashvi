@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowLeft, Check, Edit3, MessageSquare, Plus, Search, Trash2, X, LogOut } from "lucide-react";
+import { ArrowLeft, Check, Edit3, MessageSquare, Plus, Search, Trash2, X, LogOut, Lock } from "lucide-react";
 import type { ConversationItem } from "./AshviConversationDrawer";
 
 interface Props {
@@ -59,16 +59,15 @@ export function AshviChatSidebar({
     }
   };
 
-  const confirmDelete = async (id: string, e: React.MouseEvent) => {
+  const handleDelete = async (id: string, e: React.MouseEvent) => {
+    e.preventDefault();
     e.stopPropagation();
-    if (deletingId === id) {
+    if (deletingId) return;
+    setDeletingId(id);
+    try {
       await onDeleteConversation(id);
+    } finally {
       setDeletingId(null);
-    } else {
-      setDeletingId(id);
-      setTimeout(() => {
-        setDeletingId((curr) => (curr === id ? null : curr));
-      }, 4000);
     }
   };
 
@@ -237,6 +236,29 @@ export function AshviChatSidebar({
                   <>
                     <span className="ashvi-conv-dot" />
                     <span className="ashvi-conv-title">{conv.title || "Conversation"}</span>
+                    {conv.isPrivate && (
+                      <span
+                        className="ashvi-conv-private-badge"
+                        title="Private local conversation (stored only in browser)"
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "3px",
+                          fontSize: "10px",
+                          padding: "1px 5px",
+                          borderRadius: "4px",
+                          background: "rgba(126, 232, 250, 0.12)",
+                          color: "#7ee8fa",
+                          border: "1px solid rgba(126, 232, 250, 0.25)",
+                          marginLeft: "auto",
+                          marginRight: "4px",
+                          flexShrink: 0,
+                        }}
+                      >
+                        <Lock size={9} />
+                        <span>Private</span>
+                      </span>
+                    )}
 
                     <div className="ashvi-conv-hover-actions">
                       <button
@@ -250,9 +272,10 @@ export function AshviChatSidebar({
                       </button>
                       <button
                         type="button"
-                        className={`ashvi-conv-btn delete ${isConfirmingDelete ? "confirm" : ""}`}
-                        onClick={(e) => confirmDelete(conv.id, e)}
-                        title={isConfirmingDelete ? "Click to confirm delete" : "Delete"}
+                        className={`ashvi-conv-btn delete ${deletingId === conv.id ? "deleting" : ""}`}
+                        onClick={(e) => handleDelete(conv.id, e)}
+                        disabled={deletingId === conv.id}
+                        title={deletingId === conv.id ? "Deleting..." : "Delete"}
                         aria-label="Delete"
                       >
                         <Trash2 size={12} />

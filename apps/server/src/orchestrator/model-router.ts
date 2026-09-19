@@ -53,7 +53,7 @@ export class ProviderRegistry {
       };
     }
 
-    // 2. Image Generation Intent -> Nano Banana / Gemini image generation
+    // 2. Image Generation Intent -> Gemini image generation
     if (intent === "image_generation") {
       const gemini = this.providers.get("gemini");
       if (gemini) {
@@ -61,7 +61,7 @@ export class ProviderRegistry {
           providerId: gemini.id,
           model: modelOverride || gemini.defaultModel,
           provider: gemini.provider,
-          reason: "Image generation routed to Gemini Nano Banana provider.",
+          reason: "Image generation routed to Gemini provider.",
         };
       }
     }
@@ -79,22 +79,15 @@ export class ProviderRegistry {
       }
     }
 
-    // 4. Local private preferences: general conversation, coding, creative writing -> Local Qwen preferred
-    if (
-      intent === "general_conversation" ||
-      intent === "coding" ||
-      intent === "creative_writing" ||
-      intent === "system_task"
-    ) {
-      const qwen = this.providers.get("qwen") || this.providers.get("default");
-      if (qwen) {
-        return {
-          providerId: qwen.id,
-          model: modelOverride || qwen.defaultModel,
-          provider: qwen.provider,
-          reason: "Local Qwen preferred for private conversation, coding, and system operations.",
-        };
-      }
+    // 4. Primary Cloud Provider (Gemini) for all language intents
+    const gemini = this.providers.get("gemini");
+    if (gemini) {
+      return {
+        providerId: gemini.id,
+        model: modelOverride || gemini.defaultModel,
+        provider: gemini.provider,
+        reason: `Routed intent "${intent}" to primary cloud provider Gemini.`,
+      };
     }
 
     // 5. Default provider if set

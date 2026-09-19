@@ -24,7 +24,7 @@ const interruptSchema = z.object({
   reason: z.enum(["user_spoke", "explicit_cancel", "new_turn"]).optional(),
 });
 
-import { OllamaProvider } from "../ai/ollama.provider.js";
+import { GeminiProvider } from "../ai/gemini.provider.js";
 import { MemoryService } from "../memory/memory.service.js";
 import { DocumentService } from "../rag/document.service.js";
 import { AshviOrchestrator } from "../orchestrator/index.js";
@@ -42,12 +42,15 @@ export async function voiceRoutes(
 ) {
   let orchestrator = options.orchestrator;
   if (!orchestrator && options.environment.NODE_ENV !== "test") {
-    const provider = new OllamaProvider(options.environment.OLLAMA_BASE_URL, options.environment.ASHVI_AI_MODEL);
+    const provider = new GeminiProvider({
+      apiKey: options.environment.GEMINI_API_KEY,
+      defaultModel: options.environment.GEMINI_MODEL,
+    });
     const memoryService = app.prisma ? new MemoryService(app.prisma) : undefined;
     const documentService = app.prisma ? new DocumentService(app.prisma) : undefined;
     orchestrator = new AshviOrchestrator({
       defaultProvider: provider,
-      defaultModel: options.environment.ASHVI_AI_MODEL,
+      defaultModel: options.environment.GEMINI_MODEL,
       logger: app.log,
       memoryService,
       documentService,

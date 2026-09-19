@@ -37,8 +37,6 @@ export class PronunciationService {
     K8s: "K-eight-s",
     Docker: "Docker",
     Fastify: "Fastify",
-    Ollama: "Oh-lah-mah",
-    Qwen: "Kwen",
     Ashvi: "Ash-vee",
     GitHub: "Git-Hub",
     npm: "N-P-M",

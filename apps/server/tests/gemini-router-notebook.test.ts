@@ -1,6 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { GeminiProvider } from "../src/ai/gemini.provider.js";
-import { OllamaProvider } from "../src/ai/ollama.provider.js";
 import { ProviderRegistry } from "../src/orchestrator/model-router.js";
 import { NotebookService } from "../src/services/notebook.service.js";
 import { buildApp } from "../src/app/build-app.js";
@@ -18,13 +17,13 @@ describe("Provider Abstraction & Contract", () => {
     expect(available).toBe(false);
   });
 
-  it("OllamaProvider initializes and adheres to AIProvider contract", async () => {
-    const provider = new OllamaProvider(
-      "http://127.0.0.1:11434",
-      "qwen2.5-coder:7b"
-    );
+  it("GeminiProvider initializes with API key and implements AIProvider contract", async () => {
+    const provider = new GeminiProvider({
+      apiKey: "test-gemini-key",
+      model: "gemini-2.5-flash",
+    });
 
-    expect(provider.name).toBe("Local Qwen (Ollama)");
+    expect(provider.name).toBe("Gemini API");
     expect(typeof provider.chat).toBe("function");
     expect(typeof provider.chatStream).toBe("function");
     expect(typeof provider.isAvailable).toBe("function");
@@ -54,14 +53,8 @@ describe("Provider Abstraction & Contract", () => {
 });
 
 describe("Capability & Model Router", () => {
-  it("routes web_research to Gemini when available", () => {
+  it("routes coding, general conversation, web research, and image generation to Gemini", () => {
     const registry = new ProviderRegistry();
-    const mockOllama = {
-      name: "Local Qwen (Ollama)",
-      chat: vi.fn(),
-      chatStream: vi.fn(),
-      isAvailable: vi.fn().mockResolvedValue(true),
-    };
     const mockGemini = {
       name: "Gemini API",
       chat: vi.fn(),
@@ -70,28 +63,20 @@ describe("Capability & Model Router", () => {
     };
 
     registry.register({
-      id: "qwen",
-      name: "Local Qwen",
-      provider: mockOllama,
-      defaultModel: "qwen2.5-coder:7b",
-      supportsStreaming: true,
-    }, true);
-
-    registry.register({
       id: "gemini",
       name: "Gemini",
       provider: mockGemini,
       defaultModel: "gemini-2.5-flash",
       supportsStreaming: true,
-    });
+    }, true);
 
-    // Coding -> Ollama (Local Qwen)
+    // Coding -> Gemini
     const codingDecision = registry.route("coding");
-    expect(codingDecision.providerId).toBe("qwen");
+    expect(codingDecision.providerId).toBe("gemini");
 
-    // General conversation -> Ollama (Local Qwen)
+    // General conversation -> Gemini
     const generalDecision = registry.route("general_conversation");
-    expect(generalDecision.providerId).toBe("qwen");
+    expect(generalDecision.providerId).toBe("gemini");
 
     // Web research -> Gemini
     const researchDecision = registry.route("web_research");
@@ -102,66 +87,47 @@ describe("Capability & Model Router", () => {
     expect(imageDecision.providerId).toBe("gemini");
   });
 
-  it("gracefully falls back when primary capability provider is unavailable", () => {
+  it("routes to default provider when specialized provider is not found", () => {
     const registry = new ProviderRegistry();
-    const mockOllama = {
-      name: "Local Qwen (Ollama)",
+    const mockDefault = {
+      name: "Fallback Cloud",
       chat: vi.fn(),
       chatStream: vi.fn(),
       isAvailable: vi.fn().mockResolvedValue(true),
     };
 
     registry.register({
-      id: "qwen",
-      name: "Local Qwen",
-      provider: mockOllama,
-      defaultModel: "qwen2.5-coder:7b",
+      id: "fallback",
+      name: "Fallback Cloud",
+      provider: mockDefault,
+      defaultModel: "cloud-v1",
       supportsStreaming: true,
     }, true);
 
-    // When web_research is requested but Gemini is not registered, falls back to default provider (qwen)
-    const decision = registry.route("web_research");
-    expect(decision.providerId).toBe("qwen");
+    const decision = registry.route("general_conversation");
+    expect(decision.providerId).toBe("fallback");
   });
 
-  it("fails privacy boundary checks when falling back for sensitive intents", () => {
+  it("handles explicit provider requests", () => {
     const registry = new ProviderRegistry();
-    const mockQwen = {
-      name: "Local Qwen",
-      chat: vi.fn(),
-      chatStream: vi.fn(),
-      isAvailable: vi.fn().mockResolvedValue(true),
-    };
-    const mockGemini = {
-      name: "Gemini",
+    const mockCustom = {
+      name: "Custom",
       chat: vi.fn(),
       chatStream: vi.fn(),
       isAvailable: vi.fn().mockResolvedValue(true),
     };
 
     registry.register({
-      id: "qwen",
-      name: "Local Qwen",
-      provider: mockQwen,
-      defaultModel: "qwen2.5-coder:7b",
-      supportsStreaming: true,
-    }, true);
-
-    registry.register({
-      id: "gemini",
-      name: "Gemini",
-      provider: mockGemini,
-      defaultModel: "gemini-2.5-flash",
+      id: "custom-provider",
+      name: "Custom",
+      provider: mockCustom,
+      defaultModel: "custom-model",
       supportsStreaming: true,
     });
 
-    // If local Qwen fails on a private-only task, cloud failover must return null
-    const fallbackPrivate = registry.getFallback("qwen", true);
-    expect(fallbackPrivate).toBeNull();
-
-    // If local Qwen fails on a non-private task, failover to Gemini is permitted
-    const fallbackPublic = registry.getFallback("qwen", false);
-    expect(fallbackPublic?.id).toBe("gemini");
+    const decision = registry.route("general_conversation", "custom-provider");
+    expect(decision.providerId).toBe("custom-provider");
+    expect(decision.model).toBe("custom-model");
   });
 });
 
@@ -320,7 +286,6 @@ describe("GET /health/providers — Zero Secret Leakage", () => {
       GEMINI_API_KEY: "mock_test_token_never_leak_9876543210",
       ASHVI_LOG_LEVEL: "silent",
       GOOGLE_SEARCH_ENABLED: "true",
-      LOCAL_QWEN_ENABLED: "true",
     });
 
     const app = buildApp(testEnv, { withDatabase: false });
@@ -333,10 +298,10 @@ describe("GET /health/providers — Zero Secret Leakage", () => {
       expect(json.status).toBe("ok");
       expect(json.database).toBeDefined();
       expect(json.providers).toBeDefined();
-      expect(json.providers.qwen).toBeDefined();
       expect(json.providers.gemini).toBeDefined();
       expect(json.providers.search).toBeDefined();
       expect(json.providers.imageGeneration).toBeDefined();
+      expect(json.providers.qwen).toBeUndefined();
 
       // STRICT ZERO SECRET LEAKAGE VERIFICATION:
       const rawResponseText = response.payload;
@@ -344,6 +309,8 @@ describe("GET /health/providers — Zero Secret Leakage", () => {
       expect(rawResponseText).not.toContain("mock_test_token_never_leak_9876543210");
       expect(rawResponseText).not.toContain("apiKey");
       expect(rawResponseText).not.toContain("password");
+      expect(rawResponseText).not.toContain("ollama");
+      expect(rawResponseText).not.toContain("qwen");
     } finally {
       await app.close();
     }

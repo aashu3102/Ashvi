@@ -1,6 +1,6 @@
 # Ashvi v0
 
-Ashvi is a local-first personal AI assistant built as a TypeScript monorepo with a Next.js frontend, Fastify API, PostgreSQL persistence, Prisma, and a replaceable local AI provider layer powered by Ollama.
+Ashvi is a personal AI assistant built as a TypeScript monorepo with a Next.js frontend, Fastify API, PostgreSQL persistence, Prisma, and a robust AI provider layer powered by Google Gemini.
 
 ## Version 0 scope
 
@@ -10,7 +10,8 @@ This repository implements the Ashvi foundation layer:
 - Next.js web app
 - Fastify Node.js API
 - PostgreSQL + Prisma persistence
-- Local AI abstraction through Ollama
+- Cloud AI provider powered by Google Gemini (with search grounding & image generation)
+- Client-side IndexedDB isolation for private conversations (`ashvi_private_db`)
 - Conversation persistence
 - Ranked memory retrieval, editing, and durable-memory suggestions
 - Document extraction, chunking, and local retrieval for PDF, DOCX, TXT, and Markdown files
@@ -22,12 +23,12 @@ This repository implements the Ashvi foundation layer:
 
 Ashvi follows a modular layered design:
 
-Frontend -> Fastify API -> Conversation service -> AI provider -> Ollama
+Frontend -> Fastify API -> Conversation service -> AI provider -> Google Gemini
                     -> Prisma/PostgreSQL
                     -> Memory and document modules
                     -> Verification layer
 
-The app separates business logic from route handlers and keeps provider details behind an abstraction so model swaps do not require rewriting application logic.
+The app separates business logic from route handlers and keeps provider details behind an abstraction.
 
 ## Technology stack
 
@@ -39,7 +40,7 @@ The app separates business logic from route handlers and keeps provider details 
 - PostgreSQL
 - Prisma
 - Zod
-- Ollama
+- Google Gemini
 
 ## Prerequisites
 
@@ -48,7 +49,7 @@ Before running the project, install:
 - Node.js 22 or newer
 - npm 10 or newer
 - PostgreSQL 15+
-- Ollama
+- Google Gemini API Key
 
 ## PostgreSQL setup
 
@@ -61,15 +62,12 @@ Then run Prisma migrations from the server folder:
 cd apps/server
 npx prisma migrate dev
 
-## Ollama setup
+## Gemini setup
 
-Install Ollama and pull a compatible local model such as qwen2.5:3b:
+Configure `GEMINI_API_KEY` in `.env`:
 
-ollama pull qwen2.5:3b
-
-Then confirm it responds:
-
-curl http://127.0.0.1:11434/api/tags
+GEMINI_API_KEY="your-gemini-api-key"
+DEFAULT_AI_PROVIDER="gemini"
 
 ## Environment configuration
 
@@ -84,7 +82,8 @@ Expected variables:
 - ASHVI_FRONTEND_URL
 - ASHVI_LOG_LEVEL
 - ASHVI_AI_MODEL
-- OLLAMA_BASE_URL
+- GEMINI_API_KEY
+- GOOGLE_SEARCH_ENABLED
 - ASHVI_STT_COMMAND / ASHVI_STT_ARGS / ASHVI_STT_MODEL
 - ASHVI_TTS_COMMAND / ASHVI_TTS_ARGS / ASHVI_TTS_MODEL(_EN/_HI)
 - ASHVI_VOICE_COMMAND_TIMEOUT_MS
@@ -115,7 +114,7 @@ For English and Hindi, configure `ASHVI_TTS_MODEL_EN` and `ASHVI_TTS_MODEL_HI` w
 
 1. Install dependencies at the workspace root.
 2. Ensure PostgreSQL is running.
-3. Ensure Ollama is running.
+3. Configure Gemini API key in `.env`.
 4. Run Prisma migration.
 5. Start the server and web app.
 

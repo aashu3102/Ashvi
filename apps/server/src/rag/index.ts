@@ -12,7 +12,6 @@ export * from "./normalizer.js";
 export * from "./chunker.js";
 export * from "./embeddings/embedding.interface.js";
 export * from "./embeddings/local.embedding.js";
-export * from "./embeddings/ollama.embedding.js";
 export * from "./embeddings/embedding.registry.js";
 export * from "./vector-store/vector-store.interface.js";
 export * from "./vector-store/postgres.vector-store.js";

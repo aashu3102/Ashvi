@@ -18,13 +18,14 @@ import {
   HelpCircle,
   ChevronRight,
   LogOut,
+  Lock,
 } from "lucide-react";
 
 interface Props {
   activeTab: string;
   onSelectTab: (tab: string) => void;
   onNewSpace: () => void;
-  recentSpaces?: Array<{ id: string; title: string }>;
+  recentSpaces?: Array<{ id: string; title: string; isPrivate?: boolean }>;
   onSelectSpace?: (id: string) => void;
   userName?: string | null;
   onLogout?: () => void;
@@ -136,7 +137,11 @@ export function LeftSidebar({
                     className="ashvi-recent-space-link"
                     onClick={() => onSelectSpace && onSelectSpace(space.id)}
                   >
-                    <span className="ashvi-bullet-dot" />
+                    {space.isPrivate ? (
+                      <Lock size={11} style={{ color: "#38bdf8", flexShrink: 0 }} />
+                    ) : (
+                      <span className="ashvi-bullet-dot" />
+                    )}
                     <span className="ashvi-recent-space-name">{space.title}</span>
                   </button>
                 </li>
