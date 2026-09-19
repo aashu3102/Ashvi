@@ -37,7 +37,7 @@ const environmentSchema = z.object({
   ASHVI_RETRIEVAL_TOP_K: z.coerce.number().int().min(1).max(20).default(4),
   ASHVI_MIN_SIMILARITY: z.coerce.number().min(0).max(1).default(0.15),
   GEMINI_API_KEY: z.string().optional(),
-  GEMINI_MODEL: z.string().default("gemini-2.5-flash"),
+  GEMINI_MODEL: z.string().default("gemini-3.6-flash"),
   GEMINI_IMAGE_MODEL: z.string().default("gemini-2.5-flash-image"),
   GOOGLE_SEARCH_ENABLED: z.coerce.boolean().default(true),
   LOCAL_QWEN_ENABLED: z.coerce.boolean().default(true),

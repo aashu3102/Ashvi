@@ -13,29 +13,43 @@ export interface TimeTheme {
   glowColor: string;
 }
 
+export const CHAT_BACKGROUND_FILES: Record<TimeOfDay, string> = {
+  morning: "ChatGPT Image Sep 20, 2026, 01_06_23 AM.png",
+  afternoon: "ChatGPT Image Sep 20, 2026, 01_06_29 AM.png",
+  evening: "ChatGPT Image Sep 20, 2026, 01_06_36 AM.png",
+  night: "ChatGPT Image Sep 20, 2026, 01_06_18 AM.png",
+};
+
+export const chatBackgrounds: Record<TimeOfDay, string> = {
+  morning: `/${encodeURIComponent(CHAT_BACKGROUND_FILES.morning)}`,
+  afternoon: `/${encodeURIComponent(CHAT_BACKGROUND_FILES.afternoon)}`,
+  evening: `/${encodeURIComponent(CHAT_BACKGROUND_FILES.evening)}`,
+  night: `/${encodeURIComponent(CHAT_BACKGROUND_FILES.night)}`,
+};
+
 export const TIME_THEMES: Record<TimeOfDay, TimeTheme> = {
   morning: {
     timeOfDay: "morning",
     label: "Morning",
-    imageSrc: "/ashvi/chat-morning.png",
+    imageSrc: chatBackgrounds.morning,
     glowColor: "rgba(234, 179, 8, 0.12)",
   },
   afternoon: {
     timeOfDay: "afternoon",
     label: "Afternoon",
-    imageSrc: "/ashvi/chat-afternoon.png",
+    imageSrc: chatBackgrounds.afternoon,
     glowColor: "rgba(56, 189, 248, 0.12)",
   },
   evening: {
     timeOfDay: "evening",
     label: "Evening",
-    imageSrc: "/ashvi/chat-evening.png",
+    imageSrc: chatBackgrounds.evening,
     glowColor: "rgba(249, 115, 22, 0.14)",
   },
   night: {
     timeOfDay: "night",
     label: "Night",
-    imageSrc: "/ashvi/chat-night.png",
+    imageSrc: chatBackgrounds.night,
     glowColor: "rgba(139, 92, 246, 0.14)",
   },
 };

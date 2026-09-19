@@ -11,7 +11,7 @@ export const proxyGatePlugin = fp(async (app, options: { environment: Environmen
     if (!secret) return;
 
     const path = requestPath(request.url);
-    if (request.method === "OPTIONS" || path === "/health") return;
+    if (request.method === "OPTIONS" || path === "/health" || path === "/health/providers") return;
 
     const provided = request.headers["x-ashvi-proxy-key"];
     if (provided !== secret) {

@@ -222,7 +222,7 @@ export function AshviShell({ userName = null, onLogout }: AshviShellProps = {}) 
 
       if (!response.ok || !response.body) {
         const payload = await response.json().catch(() => null) as { error?: { message?: string } } | null;
-        throw new Error(payload?.error?.message ?? "Ashvi could not reach the local AI provider.");
+        throw new Error(payload?.error?.message ?? "AI service is temporarily unavailable.");
       }
 
       const reader = response.body.getReader();
@@ -254,7 +254,7 @@ export function AshviShell({ userName = null, onLogout }: AshviShellProps = {}) 
           } else if (parsed.type === "done" && parsed.assistant) {
             completedAssistant = parsed.assistant;
           } else if (parsed.type === "error") {
-            streamError = parsed.error ?? "Ashvi could not reach the local AI provider.";
+            streamError = parsed.error ?? "AI service is temporarily unavailable.";
           }
         } catch {
           streamError = "Ashvi returned an invalid streaming response.";
@@ -287,7 +287,7 @@ export function AshviShell({ userName = null, onLogout }: AshviShellProps = {}) 
       setMessages((prev) => [...prev, assistant]);
       setStreamText("");
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Ashvi could not reach the local AI provider.");
+      setError(cause instanceof Error ? cause.message : "AI service is temporarily unavailable.");
     } finally {
       setIsStreaming(false);
     }

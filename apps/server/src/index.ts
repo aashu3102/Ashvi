@@ -3,11 +3,11 @@ import { resolve } from "node:path";
 import { buildApp } from "./app/build-app.js";
 import { loadEnvironment } from "./config/env.js";
 
-dotenv.config();
-dotenv.config({ path: resolve(process.cwd(), ".env") });
-dotenv.config({ path: resolve(process.cwd(), "../../.env") });
-dotenv.config({ path: resolve(process.cwd(), "../.env") });
-dotenv.config({ path: resolve(process.cwd(), ".env.local") });
+dotenv.config({ override: true });
+dotenv.config({ path: resolve(process.cwd(), ".env"), override: true });
+dotenv.config({ path: resolve(process.cwd(), "../../.env"), override: true });
+dotenv.config({ path: resolve(process.cwd(), "../.env"), override: true });
+dotenv.config({ path: resolve(process.cwd(), ".env.local"), override: true });
 const environment = loadEnvironment();
 const app = buildApp(environment);
 

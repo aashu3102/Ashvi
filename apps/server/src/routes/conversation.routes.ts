@@ -9,7 +9,7 @@ import { addAssistantMessage, addUserMessage, createConversation, deleteConversa
 import { retrieveDocumentContext } from "../services/document.service.js";
 import { retrieveRelevantMemories, suggestMemory } from "../services/memory.service.js";
 import type { AIProvider } from "../ai/provider.js";
-import { AshviOrchestrator, ProviderRegistry, type OrchestratorTask } from "../orchestrator/index.js";
+import { AshviOrchestrator, ProviderRegistry, OrchestratorExecutionError, type OrchestratorTask } from "../orchestrator/index.js";
 
 import { MemoryService } from "../memory/memory.service.js";
 import { DocumentService } from "../rag/document.service.js";
@@ -119,7 +119,9 @@ export async function conversationRoutes(app: FastifyInstance, options: { enviro
       });
     } catch (error) {
       request.log.error({ err: error }, "AI response failed");
-      return reply.code(503).send({ error: { code: "AI_UNAVAILABLE", message: "Ashvi could not reach the local AI provider." } });
+      const message = error instanceof OrchestratorExecutionError ? error.message : "AI service is temporarily unavailable.";
+      const code = error instanceof OrchestratorExecutionError ? error.code : "AI_UNAVAILABLE";
+      return reply.code(503).send({ error: { code, message } });
     }
   });
 
@@ -164,7 +166,8 @@ export async function conversationRoutes(app: FastifyInstance, options: { enviro
           } else if (event.type === "done") {
             completedTask = event.task;
           } else if (event.type === "error") {
-            throw new Error(event.error);
+            yield `data: ${JSON.stringify({ type: "error", error: event.error, code: event.code ?? "AI_UNAVAILABLE" })}\n\n`;
+            return;
           }
         }
 
@@ -191,7 +194,8 @@ export async function conversationRoutes(app: FastifyInstance, options: { enviro
         yield `data: ${JSON.stringify({ type: "done", assistant, task: completedTask })}\n\n`;
       } catch (error) {
         request.log.error({ err: error }, "AI streaming response failed");
-        yield `data: ${JSON.stringify({ type: "error", error: "Ashvi could not reach the local AI provider." })}\n\n`;
+        const safeMessage = error instanceof Error && error.message ? error.message : "AI service is temporarily unavailable.";
+        yield `data: ${JSON.stringify({ type: "error", error: safeMessage, code: "AI_UNAVAILABLE" })}\n\n`;
       }
     })());
 

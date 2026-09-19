@@ -21,7 +21,7 @@ export const authPlugin = fp(async (app, options: { environment: Environment }) 
     if (request.method === "OPTIONS") return;
 
     const path = requestPath(request.url);
-    const isPublic = path === "/health" || path === "/api/auth/login" || path === "/api/auth/logout";
+    const isPublic = path === "/health" || path === "/health/providers" || path === "/api/auth/login" || path === "/api/auth/logout";
     if (isPublic) return;
 
     const authHeader = request.headers.authorization;

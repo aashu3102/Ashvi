@@ -3,6 +3,8 @@ import {
   getTimeOfDayFromHour,
   getGreetingWordFromHour,
   getGreeting,
+  TIME_THEMES,
+  chatBackgrounds,
 } from "./time-of-day";
 
 describe("Time of day and greeting logic", () => {
@@ -52,5 +54,22 @@ describe("Time of day and greeting logic", () => {
   it("handles full names by extracting first name cleanly", () => {
     expect(getGreeting("morning", "Aashu Singh")).toBe("Good morning, Aashu.");
     expect(getGreeting("night", "Shambhavi Sharma")).toBe("Good night, Shambhavi.");
+  });
+
+  it("maps each time period to the new 4 public background assets", () => {
+    expect(TIME_THEMES.morning.imageSrc).toContain("01_06_23%20AM.png");
+    expect(TIME_THEMES.afternoon.imageSrc).toContain("01_06_29%20AM.png");
+    expect(TIME_THEMES.evening.imageSrc).toContain("01_06_36%20AM.png");
+    expect(TIME_THEMES.night.imageSrc).toContain("01_06_18%20AM.png");
+
+    expect(chatBackgrounds.morning).toBe(TIME_THEMES.morning.imageSrc);
+    expect(chatBackgrounds.afternoon).toBe(TIME_THEMES.afternoon.imageSrc);
+    expect(chatBackgrounds.evening).toBe(TIME_THEMES.evening.imageSrc);
+    expect(chatBackgrounds.night).toBe(TIME_THEMES.night.imageSrc);
+
+    // Verify obsolete paths are not referenced
+    for (const period of ["morning", "afternoon", "evening", "night"] as const) {
+      expect(TIME_THEMES[period].imageSrc).not.toContain("/ashvi/chat-");
+    }
   });
 });

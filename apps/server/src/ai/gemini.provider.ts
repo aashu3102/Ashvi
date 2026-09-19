@@ -26,21 +26,21 @@ export class GeminiProvider implements AIProvider {
   private readonly apiKey?: string;
 
   constructor(config: GeminiProviderConfig = {}) {
-    this.apiKey = config.apiKey || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-    this.defaultModel = config.defaultModel || "gemini-2.5-flash";
+    this.apiKey = config.apiKey !== undefined ? config.apiKey : (process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY);
+    this.defaultModel = config.defaultModel || "gemini-3.6-flash";
     this.defaultImageModel = config.defaultImageModel || "gemini-2.5-flash-image";
 
-    if (this.apiKey) {
-      this.ai = new GoogleGenAI({ apiKey: this.apiKey });
+    if (this.apiKey && this.apiKey.trim()) {
+      this.ai = new GoogleGenAI({ apiKey: this.apiKey.trim() });
     }
   }
 
   async isAvailable(): Promise<boolean> {
-    return Boolean(this.apiKey && this.ai);
+    return Boolean(this.apiKey && this.apiKey.trim() && this.ai);
   }
 
   private ensureClient(): GoogleGenAI {
-    if (!this.ai || !this.apiKey) {
+    if (!this.ai || !this.apiKey || !this.apiKey.trim()) {
       throw new Error("Gemini API is not configured. Missing GEMINI_API_KEY.");
     }
     return this.ai;

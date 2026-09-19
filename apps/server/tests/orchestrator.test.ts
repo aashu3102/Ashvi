@@ -294,9 +294,9 @@ describe("Ashvi Core Orchestrator", () => {
     });
     const convId = created.json().id as string;
 
-    // Use failing app
+    // Use failing app (with all providers failing / no fallback available)
     const failingApp = buildApp(
-      loadEnvironment({ ...process.env, NODE_ENV: "test", ASHVI_LOG_LEVEL: "silent" }),
+      loadEnvironment({ ...process.env, NODE_ENV: "test", ASHVI_LOG_LEVEL: "silent", GEMINI_API_KEY: "" }),
       { provider: mockFailingProvider }
     );
     await failingApp.ready();
