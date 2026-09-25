@@ -1,133 +1,137 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { GeminiProvider } from "../src/ai/gemini.provider.js";
+import { NVIDIAProvider } from "../src/ai/nvidia.provider.js";
 import { ProviderRegistry } from "../src/orchestrator/model-router.js";
 import { NotebookService } from "../src/services/notebook.service.js";
 import { buildApp } from "../src/app/build-app.js";
 import { loadEnvironment } from "../src/config/env.js";
 
 describe("Provider Abstraction & Contract", () => {
-  it("GeminiProvider initializes safely without API key and reports isAvailable=false", async () => {
-    const provider = new GeminiProvider({
+  it("NVIDIAProvider initializes safely without API key and reports isAvailable=false", async () => {
+    const provider = new NVIDIAProvider({
       apiKey: "",
-      model: "gemini-2.5-flash",
+      defaultModel: "nvidia/nemotron-3-ultra-550b-a55b",
     });
 
-    expect(provider.name).toBe("Gemini API");
+    expect(provider.name).toBe("NVIDIA Nemotron");
     const available = await provider.isAvailable();
     expect(available).toBe(false);
   });
 
-  it("GeminiProvider initializes with API key and implements AIProvider contract", async () => {
-    const provider = new GeminiProvider({
-      apiKey: "test-gemini-key",
-      model: "gemini-2.5-flash",
+  it("NVIDIAProvider initializes with API key and implements AIProvider contract", async () => {
+    const provider = new NVIDIAProvider({
+      apiKey: "test-nvidia-key",
+      defaultModel: "nvidia/nemotron-3-ultra-550b-a55b",
     });
 
-    expect(provider.name).toBe("Gemini API");
+    expect(provider.name).toBe("NVIDIA Nemotron");
     expect(typeof provider.chat).toBe("function");
     expect(typeof provider.chatStream).toBe("function");
     expect(typeof provider.isAvailable).toBe("function");
   });
 
-  it("GeminiProvider throws descriptive error when chat called without API key", async () => {
-    const provider = new GeminiProvider({
+  it("NVIDIAProvider throws descriptive error when chat called without API key", async () => {
+    const provider = new NVIDIAProvider({
       apiKey: "",
-      model: "gemini-2.5-flash",
+      defaultModel: "nvidia/nemotron-3-ultra-550b-a55b",
     });
 
     await expect(
       provider.chat([{ role: "user", content: "hello" }])
-    ).rejects.toThrow("Gemini API is not configured. Missing GEMINI_API_KEY.");
+    ).rejects.toThrow("NVIDIA Nemotron API is not configured. Missing NVIDIA_API_KEY.");
   });
 
-  it("GeminiProvider throws descriptive error when generateImage called without API key", async () => {
-    const provider = new GeminiProvider({
+  it("NVIDIAProvider throws descriptive error when generateImage called without API key", async () => {
+    const provider = new NVIDIAProvider({
       apiKey: "",
-      imageModel: "imagen-3.0-generate-002",
+      defaultModel: "nvidia/nemotron-3-ultra-550b-a55b",
     });
 
     await expect(
       provider.generateImage({ prompt: "A golden blade in the night sky" })
-    ).rejects.toThrow("Gemini API is not configured. Missing GEMINI_API_KEY.");
+    ).rejects.toThrow("Image generation is not supported by NVIDIA Nemotron provider.");
+  });
+
+  it("NVIDIAProvider throws descriptive error when chatStream called without API key", async () => {
+    const provider = new NVIDIAProvider({
+      apiKey: "",
+      defaultModel: "nvidia/nemotron-3-ultra-550b-a55b",
+    });
+
+    const stream = provider.chatStream([{ role: "user", content: "hello" }]);
+    await expect(async () => {
+      for await (const _ of stream) {
+        // should not reach here
+      }
+    }).rejects.toThrow("NVIDIA Nemotron API is not configured. Missing NVIDIA_API_KEY.");
   });
 });
 
 describe("Capability & Model Router", () => {
-  it("routes coding, general conversation, web research, and image generation to Gemini", () => {
+  it("routes to default provider when registered", () => {
     const registry = new ProviderRegistry();
-    const mockGemini = {
-      name: "Gemini API",
+    const mockProvider = {
+      name: "Mock Provider",
       chat: vi.fn(),
       chatStream: vi.fn(),
       isAvailable: vi.fn().mockResolvedValue(true),
     };
 
     registry.register({
-      id: "gemini",
-      name: "Gemini",
-      provider: mockGemini,
-      defaultModel: "gemini-2.5-flash",
-      supportsStreaming: true,
-    }, true);
-
-    // Coding -> Gemini
-    const codingDecision = registry.route("coding");
-    expect(codingDecision.providerId).toBe("gemini");
-
-    // General conversation -> Gemini
-    const generalDecision = registry.route("general_conversation");
-    expect(generalDecision.providerId).toBe("gemini");
-
-    // Web research -> Gemini
-    const researchDecision = registry.route("web_research");
-    expect(researchDecision.providerId).toBe("gemini");
-
-    // Image generation -> Gemini
-    const imageDecision = registry.route("image_generation");
-    expect(imageDecision.providerId).toBe("gemini");
-  });
-
-  it("routes to default provider when specialized provider is not found", () => {
-    const registry = new ProviderRegistry();
-    const mockDefault = {
-      name: "Fallback Cloud",
-      chat: vi.fn(),
-      chatStream: vi.fn(),
-      isAvailable: vi.fn().mockResolvedValue(true),
-    };
-
-    registry.register({
-      id: "fallback",
-      name: "Fallback Cloud",
-      provider: mockDefault,
-      defaultModel: "cloud-v1",
+      id: "mock",
+      name: "Mock Provider",
+      provider: mockProvider as any,
+      defaultModel: "mock-model",
       supportsStreaming: true,
     }, true);
 
     const decision = registry.route("general_conversation");
-    expect(decision.providerId).toBe("fallback");
+    expect(decision.providerId).toBe("mock");
+    expect(decision.model).toBe("mock-model");
   });
 
-  it("handles explicit provider requests", () => {
+  it("routes to explicitly requested provider", () => {
     const registry = new ProviderRegistry();
-    const mockCustom = {
-      name: "Custom",
+    const mockProvider1 = {
+      name: "Mock Provider 1",
+      chat: vi.fn(),
+      chatStream: vi.fn(),
+      isAvailable: vi.fn().mockResolvedValue(true),
+    };
+    const mockProvider2 = {
+      name: "Mock Provider 2",
       chat: vi.fn(),
       chatStream: vi.fn(),
       isAvailable: vi.fn().mockResolvedValue(true),
     };
 
     registry.register({
-      id: "custom-provider",
-      name: "Custom",
-      provider: mockCustom,
-      defaultModel: "custom-model",
+      id: "provider-1",
+      name: "Mock Provider 1",
+      provider: mockProvider1 as any,
+      defaultModel: "model-1",
+      supportsStreaming: true,
+    }, true);
+
+    registry.register({
+      id: "provider-2",
+      name: "Mock Provider 2",
+      provider: mockProvider2 as any,
+      defaultModel: "model-2",
       supportsStreaming: true,
     });
 
-    const decision = registry.route("general_conversation", "custom-provider");
-    expect(decision.providerId).toBe("custom-provider");
-    expect(decision.model).toBe("custom-model");
+    const decision = registry.route("general_conversation", "provider-2");
+    expect(decision.providerId).toBe("provider-2");
+    expect(decision.model).toBe("model-2");
+  });
+
+  it("returns NoopAIProvider when no provider is registered", () => {
+    const registry = new ProviderRegistry();
+
+    const decision = registry.route("general_conversation");
+    expect(decision.providerId).toBe("none");
+    expect(decision.provider.name).toBe("No AI Provider");
+    expect(decision.reason).toContain("No AI provider configured");
   });
 });
 
@@ -283,9 +287,8 @@ describe("GET /health/providers — Zero Secret Leakage", () => {
     const testEnv = loadEnvironment({
       NODE_ENV: "test",
       DATABASE_URL: "postgresql://test_user:super_secret_password_123@localhost:5432/test_db",
-      GEMINI_API_KEY: "mock_test_token_never_leak_9876543210",
+      NVIDIA_API_KEY: "mock_test_token_never_leak_9876543210",
       ASHVI_LOG_LEVEL: "silent",
-      GOOGLE_SEARCH_ENABLED: "true",
     });
 
     const app = buildApp(testEnv, { withDatabase: false });
@@ -298,10 +301,10 @@ describe("GET /health/providers — Zero Secret Leakage", () => {
       expect(json.status).toBe("ok");
       expect(json.database).toBeDefined();
       expect(json.providers).toBeDefined();
-      expect(json.providers.gemini).toBeDefined();
-      expect(json.providers.search).toBeDefined();
-      expect(json.providers.imageGeneration).toBeDefined();
-      expect(json.providers.qwen).toBeUndefined();
+      expect(json.providers.ai).toBeDefined();
+      expect(json.providers.ai.configured).toBe(true);
+      expect(json.providers.ai.provider).toBe("NVIDIA Nemotron");
+      expect(json.providers.ai.model).toBe("nvidia/nemotron-3-ultra-550b-a55b");
 
       // STRICT ZERO SECRET LEAKAGE VERIFICATION:
       const rawResponseText = response.payload;
@@ -309,8 +312,6 @@ describe("GET /health/providers — Zero Secret Leakage", () => {
       expect(rawResponseText).not.toContain("mock_test_token_never_leak_9876543210");
       expect(rawResponseText).not.toContain("apiKey");
       expect(rawResponseText).not.toContain("password");
-      expect(rawResponseText).not.toContain("ollama");
-      expect(rawResponseText).not.toContain("qwen");
     } finally {
       await app.close();
     }

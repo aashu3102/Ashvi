@@ -9,6 +9,7 @@ import { retrieveDocumentContext } from "../services/document.service.js";
 import { retrieveRelevantMemories, suggestMemory } from "../services/memory.service.js";
 import type { AIProvider } from "../ai/provider.js";
 import { NoopAIProvider } from "../ai/provider.js";
+import { NVIDIAProvider } from "../ai/nvidia.provider.js";
 import { AshviOrchestrator, ProviderRegistry, OrchestratorExecutionError, type OrchestratorTask } from "../orchestrator/index.js";
 
 import { MemoryService } from "../memory/memory.service.js";
@@ -26,16 +27,24 @@ const ephemeralStreamSchema = z.object({
 });
 
 export async function conversationRoutes(app: FastifyInstance, options: { environment: Environment; provider?: AIProvider; orchestrator?: AshviOrchestrator }) {
-  const defaultProvider = options.provider ?? new NoopAIProvider();
+  const nvidiaProvider = options.provider ?? new NVIDIAProvider({
+    apiKey: options.environment.NVIDIA_API_KEY,
+    baseURL: options.environment.NVIDIA_BASE_URL,
+    defaultModel: options.environment.NVIDIA_MODEL,
+    temperature: options.environment.NVIDIA_TEMPERATURE,
+    topP: options.environment.NVIDIA_TOP_P,
+    maxTokens: options.environment.NVIDIA_MAX_TOKENS,
+    enableThinking: options.environment.NVIDIA_ENABLE_THINKING,
+  });
 
   const registry = new ProviderRegistry();
   registry.register(
     {
-      id: "none",
-      name: "No AI Provider",
-      provider: defaultProvider,
-      defaultModel: "none",
-      supportsStreaming: false,
+      id: "nvidia",
+      name: "NVIDIA Nemotron",
+      provider: nvidiaProvider,
+      defaultModel: options.environment.NVIDIA_MODEL,
+      supportsStreaming: true,
       priority: 1,
     },
     true
@@ -45,8 +54,8 @@ export async function conversationRoutes(app: FastifyInstance, options: { enviro
   const documentService = app.prisma ? new DocumentService(app.prisma) : undefined;
   const orchestrator = options.orchestrator ?? new AshviOrchestrator({
     registry,
-    defaultProvider,
-    defaultModel: "none",
+    defaultProvider: nvidiaProvider,
+    defaultModel: options.environment.NVIDIA_MODEL,
     logger: app.log,
     memoryService,
     documentService,

@@ -1,4 +1,5 @@
-import type { AIProvider, AIProviderNotConfiguredError } from "../ai/provider.js";
+import { NoopAIProvider } from "../ai/provider.js";
+import type { AIProvider } from "../ai/provider.js";
 import type { TaskIntent } from "./types.js";
 
 export interface RegisteredProvider {
@@ -76,7 +77,6 @@ export class ProviderRegistry {
     }
 
     // 4. No provider configured - return a NoopAIProvider that throws on use
-    const { NoopAIProvider } = require("../ai/provider.js");
     const noopProvider = new NoopAIProvider();
     return {
       providerId: "none",

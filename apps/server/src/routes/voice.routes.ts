@@ -6,7 +6,7 @@ import { STTProviderError } from "../voice/providers/stt/STTProvider.js";
 import { TTSProviderError } from "../voice/providers/tts/TTSProvider.js";
 import { VoiceProviderError } from "../voice/provider.js";
 import type { AIProvider } from "../ai/provider.js";
-import { NoopAIProvider } from "../ai/provider.js";
+import { NVIDIAProvider } from "../ai/nvidia.provider.js";
 import { MemoryService } from "../memory/memory.service.js";
 import { DocumentService } from "../rag/document.service.js";
 import { AshviOrchestrator } from "../orchestrator/index.js";
@@ -44,15 +44,23 @@ export async function voiceRoutes(
 ) {
   let orchestrator = options.orchestrator;
   if (!orchestrator) {
-    const defaultProvider = options.provider ?? new NoopAIProvider();
+    const nvidiaProvider = options.provider ?? new NVIDIAProvider({
+      apiKey: options.environment.NVIDIA_API_KEY,
+      baseURL: options.environment.NVIDIA_BASE_URL,
+      defaultModel: options.environment.NVIDIA_MODEL,
+      temperature: options.environment.NVIDIA_TEMPERATURE,
+      topP: options.environment.NVIDIA_TOP_P,
+      maxTokens: options.environment.NVIDIA_MAX_TOKENS,
+      enableThinking: options.environment.NVIDIA_ENABLE_THINKING,
+    });
     const registry = new ProviderRegistry();
     registry.register(
       {
-        id: "none",
-        name: "No AI Provider",
-        provider: defaultProvider,
-        defaultModel: "none",
-        supportsStreaming: false,
+        id: "nvidia",
+        name: "NVIDIA Nemotron",
+        provider: nvidiaProvider,
+        defaultModel: options.environment.NVIDIA_MODEL,
+        supportsStreaming: true,
       },
       true
     );
@@ -60,8 +68,8 @@ export async function voiceRoutes(
     const documentService = app.prisma ? new DocumentService(app.prisma) : undefined;
     orchestrator = new AshviOrchestrator({
       registry,
-      defaultProvider,
-      defaultModel: "none",
+      defaultProvider: nvidiaProvider,
+      defaultModel: options.environment.NVIDIA_MODEL,
       logger: app.log,
       memoryService,
       documentService,

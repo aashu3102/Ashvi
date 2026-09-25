@@ -1,5 +1,6 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import type { Environment } from "../config/env.js";
+import { NVIDIAProvider } from "../ai/nvidia.provider.js";
 
 export async function getHealth(_request: FastifyRequest, reply: FastifyReply) {
   return reply.code(200).send({
@@ -13,7 +14,7 @@ export async function getHealth(_request: FastifyRequest, reply: FastifyReply) {
 export async function getProviderHealth(
   request: FastifyRequest,
   reply: FastifyReply,
-  _environment: Environment
+  environment: Environment
 ) {
   let dbHealthy = false;
   if (request.server.hasDecorator("prisma") && request.server.prisma) {
@@ -25,15 +26,25 @@ export async function getProviderHealth(
     }
   }
 
+  const nvidiaProvider = new NVIDIAProvider({
+    apiKey: environment.NVIDIA_API_KEY,
+    baseURL: environment.NVIDIA_BASE_URL,
+    defaultModel: environment.NVIDIA_MODEL,
+  });
+  const nvidiaConfigured = Boolean(environment.NVIDIA_API_KEY);
+  const nvidiaAvailable = nvidiaConfigured ? await nvidiaProvider.isAvailable().catch(() => false) : false;
+
   return reply.code(200).send({
     status: "ok",
     service: "ashvi-server",
     database: dbHealthy ? "ready" : "unhealthy",
     providers: {
       ai: {
-        configured: false,
-        available: false,
-        message: "No AI provider configured",
+        configured: nvidiaConfigured,
+        available: nvidiaAvailable,
+        provider: "NVIDIA Nemotron",
+        model: environment.NVIDIA_MODEL,
+        message: nvidiaConfigured ? "NVIDIA Nemotron configured" : "No AI provider configured",
       },
     },
     timestamp: new Date().toISOString(),

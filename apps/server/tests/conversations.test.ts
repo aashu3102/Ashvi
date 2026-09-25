@@ -7,8 +7,8 @@ import type { AIProvider } from "../src/ai/provider.js";
 
 dotenv.config({ path: resolve(process.cwd(), "../../.env") });
 
-// Test with default NoopAIProvider (no AI configured)
-const app = buildApp(loadEnvironment({ ...process.env, NODE_ENV: "test", ASHVI_LOG_LEVEL: "silent" }));
+// Test with default NVIDIA provider but no API key (should return AI_PROVIDER_NOT_CONFIGURED)
+const app = buildApp(loadEnvironment({ ...process.env, NODE_ENV: "test", ASHVI_LOG_LEVEL: "silent", NVIDIA_API_KEY: "" }));
 
 // Test with a working mock provider
 const mockProvider: AIProvider = {
@@ -44,7 +44,7 @@ describe("conversation API", () => {
     expect((await app.inject({ method: "DELETE", url: `/api/conversations/${id}` })).statusCode).toBe(204);
   });
 
-  it("returns AI_PROVIDER_NOT_CONFIGURED when sending message without AI provider", async () => {
+  it("returns AI_PROVIDER_NOT_CONFIGURED when sending message without NVIDIA API key", async () => {
     const created = await app.inject({ method: "POST", url: "/api/conversations", payload: { title: "Test conversation" } });
     expect(created.statusCode).toBe(201);
     const id = created.json().id as string;

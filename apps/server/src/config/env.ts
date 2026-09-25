@@ -34,6 +34,15 @@ const environmentSchema = z.object({
   ASHVI_EMBEDDING_DIMENSIONS: z.coerce.number().int().min(16).max(4096).default(384),
   ASHVI_RETRIEVAL_TOP_K: z.coerce.number().int().min(1).max(20).default(4),
   ASHVI_MIN_SIMILARITY: z.coerce.number().min(0).max(1).default(0.15),
+
+  // NVIDIA Nemotron AI Provider
+  NVIDIA_API_KEY: z.string().optional(),
+  NVIDIA_BASE_URL: z.url().default("https://integrate.api.nvidia.com/v1"),
+  NVIDIA_MODEL: z.string().default("nvidia/nemotron-3-ultra-550b-a55b"),
+  NVIDIA_TEMPERATURE: z.coerce.number().min(0).max(2).default(1),
+  NVIDIA_TOP_P: z.coerce.number().min(0).max(1).default(0.95),
+  NVIDIA_MAX_TOKENS: z.coerce.number().int().min(1).max(16384).default(16384),
+  NVIDIA_ENABLE_THINKING: z.coerce.boolean().default(true),
 });
 
 export type Environment = z.infer<typeof environmentSchema>;
