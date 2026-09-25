@@ -130,6 +130,9 @@ export async function notebookRoutes(app: FastifyInstance, options: { orchestrat
       return reply.code(200).send(result);
     } catch (err: unknown) {
       request.log.error({ err }, "Notebook query failed");
+      if (err instanceof Error && err.name === "OrchestratorExecutionError" && (err as any).code === "AI_PROVIDER_NOT_CONFIGURED") {
+        return reply.code(503).send({ error: { code: "AI_PROVIDER_NOT_CONFIGURED", message: "No AI provider is currently configured." } });
+      }
       const message = err instanceof Error ? err.message : "Notebook query failed.";
       return reply.code(500).send({ error: { code: "NOTEBOOK_QUERY_FAILED", message } });
     }

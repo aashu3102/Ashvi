@@ -3,12 +3,12 @@ import type { FastifyInstance } from "fastify";
 import type { Prisma } from "@prisma/client";
 import { z } from "zod";
 import type { Environment } from "../config/env.js";
-import { GeminiProvider } from "../ai/gemini.provider.js";
 import { createConversationSchema, createMessageSchema, updateConversationSchema } from "@ashvi/shared/schemas";
 import { addAssistantMessage, addUserMessage, createConversation, deleteConversation, getConversation, listConversations, renameConversation } from "../services/conversation.service.js";
 import { retrieveDocumentContext } from "../services/document.service.js";
 import { retrieveRelevantMemories, suggestMemory } from "../services/memory.service.js";
 import type { AIProvider } from "../ai/provider.js";
+import { NoopAIProvider } from "../ai/provider.js";
 import { AshviOrchestrator, ProviderRegistry, OrchestratorExecutionError, type OrchestratorTask } from "../orchestrator/index.js";
 
 import { MemoryService } from "../memory/memory.service.js";
@@ -26,20 +26,16 @@ const ephemeralStreamSchema = z.object({
 });
 
 export async function conversationRoutes(app: FastifyInstance, options: { environment: Environment; provider?: AIProvider; orchestrator?: AshviOrchestrator }) {
-  const geminiProvider = options.provider ?? new GeminiProvider({
-    apiKey: options.environment.GEMINI_API_KEY,
-    defaultModel: options.environment.GEMINI_MODEL,
-    defaultImageModel: options.environment.GEMINI_IMAGE_MODEL,
-  });
+  const defaultProvider = options.provider ?? new NoopAIProvider();
 
   const registry = new ProviderRegistry();
   registry.register(
     {
-      id: "gemini",
-      name: "Gemini API",
-      provider: geminiProvider,
-      defaultModel: options.environment.GEMINI_MODEL,
-      supportsStreaming: true,
+      id: "none",
+      name: "No AI Provider",
+      provider: defaultProvider,
+      defaultModel: "none",
+      supportsStreaming: false,
       priority: 1,
     },
     true
@@ -49,8 +45,8 @@ export async function conversationRoutes(app: FastifyInstance, options: { enviro
   const documentService = app.prisma ? new DocumentService(app.prisma) : undefined;
   const orchestrator = options.orchestrator ?? new AshviOrchestrator({
     registry,
-    defaultProvider: geminiProvider,
-    defaultModel: options.environment.GEMINI_MODEL,
+    defaultProvider,
+    defaultModel: "none",
     logger: app.log,
     memoryService,
     documentService,

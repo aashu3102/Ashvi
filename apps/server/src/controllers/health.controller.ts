@@ -1,6 +1,5 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import type { Environment } from "../config/env.js";
-import { GeminiProvider } from "../ai/gemini.provider.js";
 
 export async function getHealth(_request: FastifyRequest, reply: FastifyReply) {
   return reply.code(200).send({
@@ -14,7 +13,7 @@ export async function getHealth(_request: FastifyRequest, reply: FastifyReply) {
 export async function getProviderHealth(
   request: FastifyRequest,
   reply: FastifyReply,
-  environment: Environment
+  _environment: Environment
 ) {
   let dbHealthy = false;
   if (request.server.hasDecorator("prisma") && request.server.prisma) {
@@ -26,28 +25,15 @@ export async function getProviderHealth(
     }
   }
 
-  const gemini = new GeminiProvider({
-    apiKey: environment.GEMINI_API_KEY,
-  });
-  const geminiConfigured = Boolean(environment.GEMINI_API_KEY);
-  const geminiAvailable = geminiConfigured ? await gemini.isAvailable().catch(() => false) : false;
-
   return reply.code(200).send({
     status: "ok",
     service: "ashvi-server",
     database: dbHealthy ? "ready" : "unhealthy",
     providers: {
-      gemini: {
-        configured: geminiConfigured,
-        available: geminiAvailable,
-      },
-      search: {
-        configured: geminiConfigured && environment.GOOGLE_SEARCH_ENABLED,
-        available: geminiAvailable && environment.GOOGLE_SEARCH_ENABLED,
-      },
-      imageGeneration: {
-        configured: geminiConfigured,
-        available: geminiAvailable,
+      ai: {
+        configured: false,
+        available: false,
+        message: "No AI provider configured",
       },
     },
     timestamp: new Date().toISOString(),

@@ -14,7 +14,6 @@
     "@fastify/cookie": "^11.0.2",
     "@fastify/cors": "11.1.0",
     "@fastify/multipart": "9.2.1",
-    "@google/genai": "^2.23.0",
     "@prisma/client": "^6.19.3",
     "@types/adm-zip": "^0.5.8",
     "@types/jsonwebtoken": "^9.0.10",

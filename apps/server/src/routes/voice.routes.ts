@@ -5,6 +5,15 @@ import { VoiceService } from "../voice/VoiceService.js";
 import { STTProviderError } from "../voice/providers/stt/STTProvider.js";
 import { TTSProviderError } from "../voice/providers/tts/TTSProvider.js";
 import { VoiceProviderError } from "../voice/provider.js";
+import type { AIProvider } from "../ai/provider.js";
+import { NoopAIProvider } from "../ai/provider.js";
+import { MemoryService } from "../memory/memory.service.js";
+import { DocumentService } from "../rag/document.service.js";
+import { AshviOrchestrator } from "../orchestrator/index.js";
+import { ProviderRegistry } from "../orchestrator/model-router.js";
+import { addAssistantMessage, addUserMessage, getConversation } from "../services/conversation.service.js";
+import { retrieveDocumentContext } from "../services/document.service.js";
+import { retrieveRelevantMemories } from "../services/memory.service.js";
 
 const languageSchema = z.enum(["en", "hi"]).default("en");
 
@@ -24,33 +33,35 @@ const interruptSchema = z.object({
   reason: z.enum(["user_spoke", "explicit_cancel", "new_turn"]).optional(),
 });
 
-import { GeminiProvider } from "../ai/gemini.provider.js";
-import { MemoryService } from "../memory/memory.service.js";
-import { DocumentService } from "../rag/document.service.js";
-import { AshviOrchestrator } from "../orchestrator/index.js";
-import { addAssistantMessage, addUserMessage, getConversation } from "../services/conversation.service.js";
-import { retrieveDocumentContext } from "../services/document.service.js";
-import { retrieveRelevantMemories } from "../services/memory.service.js";
-
 export async function voiceRoutes(
   app: FastifyInstance,
   options: {
     environment: Environment;
     voiceService?: VoiceService;
     orchestrator?: AshviOrchestrator;
+    provider?: AIProvider;
   },
 ) {
   let orchestrator = options.orchestrator;
-  if (!orchestrator && options.environment.NODE_ENV !== "test") {
-    const provider = new GeminiProvider({
-      apiKey: options.environment.GEMINI_API_KEY,
-      defaultModel: options.environment.GEMINI_MODEL,
-    });
+  if (!orchestrator) {
+    const defaultProvider = options.provider ?? new NoopAIProvider();
+    const registry = new ProviderRegistry();
+    registry.register(
+      {
+        id: "none",
+        name: "No AI Provider",
+        provider: defaultProvider,
+        defaultModel: "none",
+        supportsStreaming: false,
+      },
+      true
+    );
     const memoryService = app.prisma ? new MemoryService(app.prisma) : undefined;
     const documentService = app.prisma ? new DocumentService(app.prisma) : undefined;
     orchestrator = new AshviOrchestrator({
-      defaultProvider: provider,
-      defaultModel: options.environment.GEMINI_MODEL,
+      registry,
+      defaultProvider,
+      defaultModel: "none",
       logger: app.log,
       memoryService,
       documentService,
@@ -219,6 +230,9 @@ export async function voiceRoutes(
       };
     } catch (error) {
       request.log.error({ err: error }, "Voice conversation failed");
+      if (error instanceof Error && error.name === "OrchestratorExecutionError" && (error as any).code === "AI_PROVIDER_NOT_CONFIGURED") {
+        return reply.code(503).send({ error: { code: "AI_PROVIDER_NOT_CONFIGURED", message: "No AI provider is currently configured." } });
+      }
       const message = error instanceof Error ? error.message : "Voice conversation failed.";
       return reply.code(500).send({ error: { code: "VOICE_TURN_FAILED", message } });
     }
@@ -338,7 +352,11 @@ export async function voiceRoutes(
       }
     } catch (error) {
       const msg = error instanceof Error ? error.message : "Stream error";
-      sendEvent({ type: "error", message: msg, sessionId });
+      if (error instanceof Error && error.name === "OrchestratorExecutionError" && (error as any).code === "AI_PROVIDER_NOT_CONFIGURED") {
+        sendEvent({ type: "error", message: "No AI provider is currently configured.", code: "AI_PROVIDER_NOT_CONFIGURED", sessionId });
+      } else {
+        sendEvent({ type: "error", message: msg, sessionId });
+      }
     } finally {
       reply.raw.end();
     }

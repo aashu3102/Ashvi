@@ -48,13 +48,20 @@ export function formatUserSafeError(
     };
   }
 
+  // Check for no AI provider configured
+  if (lower.includes("not configured") || lower.includes("no ai provider")) {
+    return {
+      message: "No AI provider is currently configured.",
+      code: "AI_PROVIDER_NOT_CONFIGURED",
+    };
+  }
+
   // Check authentication / credentials
   if (
     lower.includes("api_key") ||
     lower.includes("unauthenticated") ||
     lower.includes("permission_denied") ||
-    lower.includes("invalid_api_key") ||
-    lower.includes("not configured")
+    lower.includes("invalid_api_key")
   ) {
     return {
       message: "Your AI service authentication is unavailable.",

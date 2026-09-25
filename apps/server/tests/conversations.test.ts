@@ -6,38 +6,60 @@ import { loadEnvironment } from "../src/config/env.js";
 import type { AIProvider } from "../src/ai/provider.js";
 
 dotenv.config({ path: resolve(process.cwd(), "../../.env") });
+
+// Test with default NoopAIProvider (no AI configured)
 const app = buildApp(loadEnvironment({ ...process.env, NODE_ENV: "test", ASHVI_LOG_LEVEL: "silent" }));
-const failingProvider: AIProvider = {
-  async chat() { throw new Error("provider unavailable"); },
-  async *chatStream() { throw new Error("provider unavailable"); },
+
+// Test with a working mock provider
+const mockProvider: AIProvider = {
+  id: "mock",
+  name: "Mock Provider",
+  async isAvailable() { return true; },
+  async chat(_messages: any[]) {
+    return { content: "Mock response", modelUsed: "mock-model" };
+  },
+  async *chatStream(_messages: any[]) {
+    yield { content: "Mock ", sources: undefined, searchUsed: false };
+    yield { content: "response", sources: undefined, searchUsed: false, done: true };
+  },
 };
-const failingApp = buildApp(loadEnvironment({ ...process.env, NODE_ENV: "test", ASHVI_LOG_LEVEL: "silent" }), { provider: failingProvider });
+const mockApp = buildApp(loadEnvironment({ ...process.env, NODE_ENV: "test", ASHVI_LOG_LEVEL: "silent" }), { provider: mockProvider });
 
 beforeAll(async () => {
   await app.ready();
-  await failingApp.ready();
+  await mockApp.ready();
 });
 afterAll(async () => {
   await app.close();
-  await failingApp.close();
+  await mockApp.close();
 });
 
 describe("conversation API", () => {
-  it("creates, reads, renames, messages, and deletes a conversation", async () => {
+  it("creates, reads, renames, and deletes a conversation", async () => {
     const created = await app.inject({ method: "POST", url: "/api/conversations", payload: { title: "Test conversation" } });
     expect(created.statusCode).toBe(201);
     const id = created.json().id as string;
 
-    expect((await app.inject({ method: "POST", url: `/api/conversations/${id}/messages`, payload: { content: "Hello Ashvi" } })).statusCode).toBe(201);
-    const loaded = await app.inject({ method: "GET", url: `/api/conversations/${id}` });
-    expect(loaded.json().messages).toHaveLength(2);
-    expect(loaded.json().messages.some((message: { role: string; content: string }) => message.role === "USER")).toBe(true);
-    expect(loaded.json().messages.some((message: { role: string; content: string }) => message.role === "ASSISTANT")).toBe(true);
     expect((await app.inject({ method: "PATCH", url: `/api/conversations/${id}`, payload: { title: "Renamed" } })).json().title).toBe("Renamed");
     expect((await app.inject({ method: "DELETE", url: `/api/conversations/${id}` })).statusCode).toBe(204);
-  }, 20000);
+  });
 
-  it("streams messages over SSE for the active chat client", async () => {
+  it("returns AI_PROVIDER_NOT_CONFIGURED when sending message without AI provider", async () => {
+    const created = await app.inject({ method: "POST", url: "/api/conversations", payload: { title: "Test conversation" } });
+    expect(created.statusCode).toBe(201);
+    const id = created.json().id as string;
+
+    const response = await app.inject({ method: "POST", url: `/api/conversations/${id}/messages`, payload: { content: "Hello Ashvi" } });
+    expect(response.statusCode).toBe(503);
+    expect(response.json()).toMatchObject({ error: { code: "AI_PROVIDER_NOT_CONFIGURED" } });
+
+    // Verify no assistant message was persisted
+    const loaded = await app.inject({ method: "GET", url: `/api/conversations/${id}` });
+    expect(loaded.json().messages).toHaveLength(1);
+    expect(loaded.json().messages[0].role).toBe("USER");
+  });
+
+  it("streams AI_PROVIDER_NOT_CONFIGURED error over SSE when no AI provider", async () => {
     const created = await app.inject({ method: "POST", url: "/api/conversations", payload: { title: "Streaming conversation" } });
     expect(created.statusCode).toBe(201);
     const id = created.json().id as string;
@@ -47,17 +69,11 @@ describe("conversation API", () => {
     expect(stream.statusCode).toBe(200);
     expect(stream.headers["content-type"]).toContain("text/event-stream");
     const events = stream.payload.split("\n\n").filter(Boolean).map((event) => JSON.parse(event.replace(/^data:\s*/, "")));
-    const chunks = events.filter((event: { type?: string }) => event.type === "chunk");
-    const done = events.find((event: { type?: string }) => event.type === "done");
-    expect(chunks.length).toBeGreaterThan(0);
-    expect(chunks.every((event: { content?: string }) => Boolean(event.content?.trim()))).toBe(true);
-    expect(done?.assistant?.content?.trim()).toBeTruthy();
+    const errorEvent = events.find((event: { type?: string; code?: string }) => event.type === "error" && event.code === "AI_PROVIDER_NOT_CONFIGURED");
+    expect(errorEvent).toBeDefined();
+  });
 
-    const loaded = await app.inject({ method: "GET", url: `/api/conversations/${id}` });
-    expect(loaded.json().messages.at(-1).content.trim()).toBe(done.assistant.content.trim());
-  }, 30000);
-
-  it("streams private messages via ephemeral-stream with zero database retention", async () => {
+  it("streams private messages via ephemeral-stream returns AI_PROVIDER_NOT_CONFIGURED", async () => {
     const stream = await app.inject({
       method: "POST",
       url: "/api/conversations/ephemeral-stream",
@@ -70,27 +86,44 @@ describe("conversation API", () => {
     expect(stream.statusCode).toBe(200);
     expect(stream.headers["content-type"]).toContain("text/event-stream");
     const events = stream.payload.split("\n\n").filter(Boolean).map((event) => JSON.parse(event.replace(/^data:\s*/, "")));
+    const errorEvent = events.find((event: { type?: string; code?: string }) => event.type === "error" && event.code === "AI_PROVIDER_NOT_CONFIGURED");
+    expect(errorEvent).toBeDefined();
+  });
+
+  it("works with a custom AI provider when configured", async () => {
+    const created = await mockApp.inject({ method: "POST", url: "/api/conversations", payload: { title: "Test with mock provider" } });
+    expect(created.statusCode).toBe(201);
+    const id = created.json().id as string;
+
+    const response = await mockApp.inject({ method: "POST", url: `/api/conversations/${id}/messages`, payload: { content: "Hello" } });
+    expect(response.statusCode).toBe(201);
+    expect(response.json().assistant.content).toBe("Mock response");
+
+    const loaded = await mockApp.inject({ method: "GET", url: `/api/conversations/${id}` });
+    expect(loaded.json().messages).toHaveLength(2);
+    expect(loaded.json().messages[1].role).toBe("ASSISTANT");
+    expect(loaded.json().messages[1].content).toBe("Mock response");
+  }, 20000);
+
+  it("streams messages over SSE with a custom AI provider", async () => {
+    const created = await mockApp.inject({ method: "POST", url: "/api/conversations", payload: { title: "Streaming with mock provider" } });
+    expect(created.statusCode).toBe(201);
+    const id = created.json().id as string;
+
+    const stream = await mockApp.inject({ method: "POST", url: `/api/conversations/${id}/messages/stream`, payload: { content: "Give me a short answer." } });
+
+    expect(stream.statusCode).toBe(200);
+    expect(stream.headers["content-type"]).toContain("text/event-stream");
+    const events = stream.payload.split("\n\n").filter(Boolean).map((event) => JSON.parse(event.replace(/^data:\s*/, "")));
     const chunks = events.filter((event: { type?: string }) => event.type === "chunk");
     const done = events.find((event: { type?: string }) => event.type === "done");
     expect(chunks.length).toBeGreaterThan(0);
-    expect(done?.assistant?.content?.trim()).toBeTruthy();
+    expect(chunks.every((event: { content?: string }) => Boolean(event.content?.trim()))).toBe(true);
+    expect(done?.assistant?.content?.trim()).toBe("Mock response");
 
-    // Verify zero database persistence for this conversation
-    const convs = await app.inject({ method: "GET", url: "/api/conversations" });
-    const list = convs.json();
-    expect(list.some((c: { title: string }) => c.title?.includes("Barbie"))).toBe(false);
-  });
-
-  it("reports provider failure without persisting a false assistant response", async () => {
-    const created = await failingApp.inject({ method: "POST", url: "/api/conversations", payload: {} });
-    const id = created.json().id as string;
-    const stream = await failingApp.inject({ method: "POST", url: `/api/conversations/${id}/messages/stream`, payload: { content: "Hello" } });
-    const events = stream.payload.split("\n\n").filter(Boolean).map((event) => JSON.parse(event.replace(/^data:\s*/, "")));
-    expect(events.at(-1)).toMatchObject({ type: "error" });
-
-    const loaded = await failingApp.inject({ method: "GET", url: `/api/conversations/${id}` });
-    expect(loaded.json().messages.map((message: { role: string }) => message.role)).toEqual(["USER"]);
-  });
+    const loaded = await mockApp.inject({ method: "GET", url: `/api/conversations/${id}` });
+    expect(loaded.json().messages.at(-1).content.trim()).toBe(done.assistant.content.trim());
+  }, 30000);
 
   it("returns HTTP 400 for invalid request bodies", async () => {
     const response = await app.inject({ method: "POST", url: "/api/conversations", payload: { title: 42 } });

@@ -1,7 +1,8 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { z } from "zod";
 import type { Environment } from "../config/env.js";
-import { GeminiProvider } from "../ai/gemini.provider.js";
+import type { AIProvider } from "../ai/provider.js";
+import { NoopAIProvider } from "../ai/provider.js";
 
 const generateImageSchema = z.object({
   prompt: z.string().min(1).max(2000),
@@ -9,11 +10,8 @@ const generateImageSchema = z.object({
   numberOfImages: z.number().int().min(1).max(4).optional(),
 });
 
-export async function imageRoutes(app: FastifyInstance, options: { environment: Environment }) {
-  const geminiProvider = new GeminiProvider({
-    apiKey: options.environment.GEMINI_API_KEY,
-    defaultImageModel: options.environment.GEMINI_IMAGE_MODEL,
-  });
+export async function imageRoutes(app: FastifyInstance, options: { environment: Environment; provider?: AIProvider }) {
+  const defaultProvider = options.provider ?? new NoopAIProvider();
 
   app.post("/api/images/generate", async (request: FastifyRequest, reply: FastifyReply) => {
     if (!request.userId) {
@@ -27,15 +25,8 @@ export async function imageRoutes(app: FastifyInstance, options: { environment: 
       });
     }
 
-    const isAvailable = await geminiProvider.isAvailable();
-    if (!isAvailable) {
-      return reply.code(503).send({
-        error: { code: "IMAGE_GEN_UNAVAILABLE", message: "Image generation is currently unavailable. Gemini API is not configured." },
-      });
-    }
-
     try {
-      const result = await geminiProvider.generateImage({
+      const result = await defaultProvider.generateImage({
         prompt: parseResult.data.prompt,
         aspectRatio: parseResult.data.aspectRatio,
         numberOfImages: parseResult.data.numberOfImages,
@@ -49,6 +40,11 @@ export async function imageRoutes(app: FastifyInstance, options: { environment: 
       });
     } catch (err: unknown) {
       request.log.error({ err }, "Image generation failed");
+      if (err instanceof Error && err.name === "AIProviderNotConfiguredError") {
+        return reply.code(503).send({
+          error: { code: "AI_PROVIDER_NOT_CONFIGURED", message: "No AI provider is currently configured." },
+        });
+      }
       const message = err instanceof Error ? err.message : "Image generation failed.";
       return reply.code(500).send({
         error: { code: "IMAGE_GEN_FAILED", message },

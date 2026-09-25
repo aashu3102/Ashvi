@@ -47,6 +47,13 @@ export interface ImageGenerationResult {
   modelUsed: string;
 }
 
+export class AIProviderNotConfiguredError extends Error {
+  constructor(message = "No AI provider is currently configured.") {
+    super(message);
+    this.name = "AIProviderNotConfiguredError";
+  }
+}
+
 export interface AIProvider {
   id?: string;
   name?: string;
@@ -54,4 +61,25 @@ export interface AIProvider {
   chat(messages: ChatTurn[], options?: ProviderChatOptions): Promise<string | ProviderChatResult>;
   chatStream?(messages: ChatTurn[], options?: ProviderChatOptions): AsyncIterable<string | ProviderStreamChunk>;
   generateImage?(options: ImageGenerationOptions): Promise<ImageGenerationResult>;
+}
+
+export class NoopAIProvider implements AIProvider {
+  public readonly id = "none";
+  public readonly name = "No AI Provider";
+
+  async isAvailable(): Promise<boolean> {
+    return false;
+  }
+
+  async chat(): Promise<ProviderChatResult> {
+    throw new AIProviderNotConfiguredError();
+  }
+
+  async *chatStream(): AsyncIterable<ProviderStreamChunk> {
+    throw new AIProviderNotConfiguredError();
+  }
+
+  async generateImage(): Promise<ImageGenerationResult> {
+    throw new AIProviderNotConfiguredError();
+  }
 }

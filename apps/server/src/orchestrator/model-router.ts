@@ -1,4 +1,4 @@
-import type { AIProvider } from "../ai/provider.js";
+import type { AIProvider, AIProviderNotConfiguredError } from "../ai/provider.js";
 import type { TaskIntent } from "./types.js";
 
 export interface RegisteredProvider {
@@ -53,44 +53,7 @@ export class ProviderRegistry {
       };
     }
 
-    // 2. Image Generation Intent -> Gemini image generation
-    if (intent === "image_generation") {
-      const gemini = this.providers.get("gemini");
-      if (gemini) {
-        return {
-          providerId: gemini.id,
-          model: modelOverride || gemini.defaultModel,
-          provider: gemini.provider,
-          reason: "Image generation routed to Gemini provider.",
-        };
-      }
-    }
-
-    // 3. Web Research Intent or explicitly enabled Search -> Gemini with Search Grounding
-    if (intent === "web_research" || options.enableSearch) {
-      const gemini = this.providers.get("gemini");
-      if (gemini) {
-        return {
-          providerId: gemini.id,
-          model: modelOverride || gemini.defaultModel,
-          provider: gemini.provider,
-          reason: "Web research routed to Gemini with Google Search Grounding.",
-        };
-      }
-    }
-
-    // 4. Primary Cloud Provider (Gemini) for all language intents
-    const gemini = this.providers.get("gemini");
-    if (gemini) {
-      return {
-        providerId: gemini.id,
-        model: modelOverride || gemini.defaultModel,
-        provider: gemini.provider,
-        reason: `Routed intent "${intent}" to primary cloud provider Gemini.`,
-      };
-    }
-
-    // 5. Default provider if set
+    // 2. Default provider if set
     if (this.defaultProviderId && this.providers.has(this.defaultProviderId)) {
       const reg = this.providers.get(this.defaultProviderId)!;
       return {
@@ -101,7 +64,7 @@ export class ProviderRegistry {
       };
     }
 
-    // 6. Fallback: take the first registered provider
+    // 3. Fallback: take the first registered provider
     const first = Array.from(this.providers.values())[0];
     if (first) {
       return {
@@ -112,7 +75,15 @@ export class ProviderRegistry {
       };
     }
 
-    throw new Error("No AI providers registered in the orchestrator registry.");
+    // 4. No provider configured - return a NoopAIProvider that throws on use
+    const { NoopAIProvider } = require("../ai/provider.js");
+    const noopProvider = new NoopAIProvider();
+    return {
+      providerId: "none",
+      model: "none",
+      provider: noopProvider,
+      reason: "No AI provider configured. Requests will fail with AI_PROVIDER_NOT_CONFIGURED.",
+    };
   }
 
   /**
@@ -121,7 +92,6 @@ export class ProviderRegistry {
    */
   getFallback(failedProviderId: string, isPrivateOnly = false): RegisteredProvider | null {
     if (isPrivateOnly) {
-      // Never silently send private-only tasks to cloud providers
       return null;
     }
 
