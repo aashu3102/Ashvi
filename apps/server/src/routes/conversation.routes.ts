@@ -8,7 +8,6 @@ import { addAssistantMessage, addUserMessage, createConversation, deleteConversa
 import { retrieveDocumentContext } from "../services/document.service.js";
 import { retrieveRelevantMemories, suggestMemory } from "../services/memory.service.js";
 import type { AIProvider } from "../ai/provider.js";
-import { NoopAIProvider } from "../ai/provider.js";
 import { NVIDIAProvider } from "../ai/nvidia.provider.js";
 import { AshviOrchestrator, ProviderRegistry, OrchestratorExecutionError, type OrchestratorTask } from "../orchestrator/index.js";
 
@@ -60,6 +59,15 @@ export async function conversationRoutes(app: FastifyInstance, options: { enviro
     memoryService,
     documentService,
   });
+
+  if (app.prisma) {
+    if (!orchestrator.memoryService && memoryService) {
+      orchestrator.memoryService = memoryService;
+    }
+    if (!orchestrator.documentService && documentService) {
+      orchestrator.documentService = documentService;
+    }
+  }
 
   app.get("/api/conversations", async (request) => listConversations(app.prisma, request.userId ?? undefined));
   app.post("/api/conversations", async (request, reply) => {

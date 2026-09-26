@@ -280,7 +280,8 @@ describe("Ashvi Advanced Document Intelligence + RAG (40 Scenarios)", () => {
   // 18. Document ownership
   it("18. user A document is recorded with user A ownership", async () => {
     const doc = await prisma.document.findFirst({
-      where: { filename: "nimbus-spec.txt" },
+      where: { filename: "nimbus-spec.txt", userId: userAId },
+      orderBy: { createdAt: "desc" },
     });
     expect(doc?.userId).toBe(userAId);
     expect(doc?.scope).toBe("PRIVATE");

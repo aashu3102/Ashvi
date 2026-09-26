@@ -1,56 +1,101 @@
-# Ashvi v0 architecture
+# Ashvi V1 Architecture
 
-Ashvi presents one assistant identity while keeping its internal capabilities replaceable.
+## Philosophy
 
-Core flow:
+Ashvi is designed with four fundamental architectural pillars:
 
-Web app -> Fastify API -> Conversation service -> AI provider -> Google Gemini
-                   -> Prisma/PostgreSQL (Cloud)
-                   -> IndexedDB (`ashvi_private_db`) (Local Private Isolation)
-                   -> Memory service
-                   -> Settings service
-                   -> Verification service
+1. **One Persistent Identity**: The user always interacts with Ashvi. Regardless of whether an underlying model is NVIDIA Nemotron, an image generator, a local Whisper pipeline, or a search crawler, Ashvi's tone, memory, and orchestration remain unified.
+2. **Local-First & Privacy-Preserving**: Private conversations run ephemerally with zero cloud database persistence and are stored exclusively in client-side IndexedDB with AES-GCM encryption. Voice commands process locally via Whisper and Piper.
+3. **Pluggable & Replaceable Engines**: All external models and providers implement strict interfaces (`AIProvider`, `ImageProvider`, `SearchProvider`, `STTProvider`, `TTSProvider`), allowing zero-downtime provider substitution.
+4. **Verification Guardrails**: Every LLM response is inspected by a deterministic verification layer before completion to flag ungrounded claims, detect hallucinations, and enforce source citations.
 
-## Layering
+---
 
-- Routes handle HTTP contracts and validation.
-- Services handle business logic and persistence.
-- Providers hide model-specific logic behind shared interfaces.
-- Prisma is the persistence layer for cloud conversation, memory, and settings data.
-- IndexedDB (`ashvi_private_db`) is the strictly local client persistence layer for private conversations.
-- Verification sits beside the model outputs to reduce fabricated or unsupported claims.
+## Architecture Topology
 
-## Current implementation status
+```
+┌────────────────────────────────────────────────────────┐
+│                   Next.js Web Client                   │
+│                                                        │
+│  AshviShell ── ActiveChatModal ── VoiceBar ── Sidebar  │
+│         │                                              │
+│         ├── IndexedDB (Private AES Encrypted Store)    │
+│         └── Audio Recorder / Audio Player (WAV)        │
+└──────────────────────────┬─────────────────────────────┘
+                           │ HTTPS / WSS / SSE
+                           ▼
+┌────────────────────────────────────────────────────────┐
+│                   Next.js API Proxy                    │
+│                 /app/api/[...path]                     │
+│         (Proxy-Key Gate / Origin Hardening)            │
+└──────────────────────────┬─────────────────────────────┘
+                           │ Internal loopback
+                           ▼
+┌────────────────────────────────────────────────────────┐
+│                   Fastify 5 Server                     │
+│                                                        │
+│  ┌──────────────────────────────────────────────────┐  │
+│  │               Security & Auth Gate               │  │
+│  │   - Argon2id Hash Authentication                 │  │
+│  │   - Encrypted Session Cookies                    │  │
+│  │   - Rate Limiter & Brute-Force Lockout           │  │
+│  └──────────────────────────┬───────────────────────┘  │
+│                             │                          │
+│  ┌──────────────────────────▼───────────────────────┐  │
+│  │                 AshviOrchestrator                │  │
+│  │                                                  │  │
+│  │   1. Intent Classifier (Coding/Research/Docs/etc)│  │
+│  │   2. Context Builder (Sliding Window + Memory)   │  │
+│  │   3. Task Planner (Direct or Multi-Step)         │  │
+│  │   4. Model Router (Priority Routing + Fallback)  │  │
+│  │   5. Verification Layer (Grounding Check)        │  │
+│  └───────┬────────────┬─────────────┬────────────┬──┘  │
+│          │            │             │            │     │
+│          ▼            ▼             ▼            ▼     │
+│  ┌──────────────┐┌───────────┐┌───────────┐┌────────┐  │
+│  │NVIDIA Provider│WebSearch  ││ImageService│Document│  │
+│  │(Nemotron 550B││(DuckDuckGo││(Pollinat- ││Service │  │
+│  │ Chat/Stream) ││ / Tavily) ││ ions/Flux)││ (RAG)  │  │
+│  └──────────────┘└───────────┘└───────────┘└────────┘  │
+│          │                                       │     │
+│          ▼                                       ▼     │
+│  ┌──────────────────────────────────────────────────┐  │
+│  │               Neon PostgreSQL + Prisma           │  │
+│  │   Users · Conversations · Messages · Memory      │  │
+│  │   Documents · DocumentChunks · Notebooks         │  │
+│  └──────────────────────────────────────────────────┘  │
+└────────────────────────────────────────────────────────┘
+```
 
-The foundation now includes:
+---
 
-- Next.js frontend shell and chat UI
-- Fastify app with structured error handling and CORS
-- Prisma-based database models for conversations, messages, memory, documents, and settings
-- Gemini-backed cloud AI provider abstraction (with Google Search Grounding and image generation)
-- Conversation CRUD and assistant response persistence
-- Ranked memory retrieval, editable memory records, and chat-based memory suggestions
-- Upload pipeline with asynchronous extraction for PDF, DOCX, TXT, and Markdown files
-- Ordered document chunks with local lexical retrieval injected into chat prompts
-- Verification heuristic for uncertain or overconfident responses
-- Working build and test baseline
+## Subsystems
 
-## Design principles
+### 1. Ashvi Orchestrator (`src/orchestrator/`)
+- `intent-classifier.ts`: Classifies requests into intents (`coding`, `research`, `web_research`, `document_analysis`, `image_generation`, `general_conversation`, `notebook_query`, etc.).
+- `context-builder.ts`: Assembles a multi-turn token budget budget sliding window, integrating memory facts, document excerpts, and web research results with role attribution and prompt guardrails.
+- `model-router.ts`: Manages provider registry, priority routing, capability filtering (e.g. streaming, privacy-only constraints), and automatic failover.
+- `verification-layer.ts`: Scores responses for cautious language, checks against retrieved source citations, and marks states as `verified`, `requires_evidence`, or `failed`.
 
-- One AI identity for the user
-- Replaceable model providers
-- Local-first operation
-- Safe handling of uncertain outputs
-- Modular service boundaries for future expansion
+### 2. AI & Model Providers (`src/ai/`)
+- `nvidia.provider.ts`: Integrates NVIDIA's OpenAI-compatible Nemotron API (`nvidia/nemotron-3-ultra-550b-a55b`) with full token streaming, reasoning tokens, and timeout handling.
 
-## Known limitations
+### 3. Web Search Grounding (`src/tools/search.tool.ts`)
+- `DuckDuckGoSearchProvider`: Native zero-config HTML organic result extractor.
+- `TavilySearchProvider`: Optional high-precision research API.
+- Injects structured evidence into orchestrator context turns and streams source citations to the client.
 
-This is still not a full v1 assistant. The current version intentionally keeps the foundation focused and reliable rather than overbuilding future features.
+### 4. Image Generation (`src/images/image.service.ts`)
+- `PollinationsImageProvider`: High-quality open Flux/SDXL image synthesis with dynamic aspect ratio geometry (`16:9`, `1:1`, `9:16`, `4:3`).
+- `OpenAIImageProvider`: DALL-E 3 fallback when configured.
+- Graceful 503 handling when image services are disabled.
 
-The next upgrades are planned around:
+### 5. Document RAG & Notebooks (`src/rag/`, `src/services/notebook.service.ts`)
+- Ingestion for PDF, DOCX, XLSX, Markdown, and text.
+- Deterministic 384-dimensional local vector embedding for zero external API reliance.
+- Notebook service binding documents and notes to orchestrator execution.
 
-- semantic document ranking and richer document ingestion
-- streaming / WebSocket task updates
-- more advanced memory retrieval
-- verification against document evidence
-- orchestration for tool use and research jobs
+### 6. Voice Engine (`src/voice/`)
+- STT: `WhisperProvider` executing `faster-whisper`.
+- TTS: `PiperProvider` executing neural `piper` voices with English and Hindi support.
+- Low-latency temporary buffer cleanup and barge-in session management.

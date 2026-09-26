@@ -1,12 +1,12 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import dotenv from "dotenv";
-import { resolve } from "node:path";
 import argon2 from "argon2";
 import { buildApp } from "../src/app/build-app.js";
 import { loadEnvironment } from "../src/config/env.js";
+import type { ChatTurn } from "../src/ai/provider.js";
+
 const mockRagProvider = {
-  name: "Gemini API",
-  async chat(messages: any[]) {
+  name: "NVIDIA Nemotron Mock",
+  async chat(messages: ChatTurn[]) {
     const allText = messages.map((m) => m.content).join(" ");
     const hasEvidence =
       allText.includes("chronos-spec") ||
@@ -24,7 +24,7 @@ const mockRagProvider = {
     }
     return "I do not have sufficient information in the document to answer that.";
   },
-  async *chatStream(messages: any[]) {
+  async *chatStream(messages: ChatTurn[]) {
     const response = await this.chat(messages);
     yield response;
   },

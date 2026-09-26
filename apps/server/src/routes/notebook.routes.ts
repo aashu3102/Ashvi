@@ -2,7 +2,7 @@ import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { z } from "zod";
 import { NotebookService } from "../services/notebook.service.js";
 import { DocumentService } from "../rag/document.service.js";
-import type { AshviOrchestrator } from "../orchestrator/orchestrator.js";
+import { type AshviOrchestrator, OrchestratorExecutionError } from "../orchestrator/index.js";
 
 const createNotebookSchema = z.object({
   title: z.string().min(1).max(120),
@@ -30,6 +30,9 @@ const queryNotebookSchema = z.object({
 
 export async function notebookRoutes(app: FastifyInstance, options: { orchestrator?: AshviOrchestrator } = {}) {
   const documentService = app.prisma ? new DocumentService(app.prisma) : undefined;
+  if (app.prisma && options.orchestrator && !options.orchestrator.documentService && documentService) {
+    options.orchestrator.documentService = documentService;
+  }
   const service = new NotebookService(app.prisma, documentService, options.orchestrator);
 
   app.get("/api/notebooks", async (request: FastifyRequest, reply: FastifyReply) => {
@@ -130,7 +133,7 @@ export async function notebookRoutes(app: FastifyInstance, options: { orchestrat
       return reply.code(200).send(result);
     } catch (err: unknown) {
       request.log.error({ err }, "Notebook query failed");
-      if (err instanceof Error && err.name === "OrchestratorExecutionError" && (err as any).code === "AI_PROVIDER_NOT_CONFIGURED") {
+      if (err instanceof OrchestratorExecutionError && err.code === "AI_PROVIDER_NOT_CONFIGURED") {
         return reply.code(503).send({ error: { code: "AI_PROVIDER_NOT_CONFIGURED", message: "No AI provider is currently configured." } });
       }
       const message = err instanceof Error ? err.message : "Notebook query failed.";

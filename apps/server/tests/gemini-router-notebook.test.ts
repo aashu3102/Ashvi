@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { NVIDIAProvider } from "../src/ai/nvidia.provider.js";
 import { ProviderRegistry } from "../src/orchestrator/model-router.js";
@@ -59,8 +60,8 @@ describe("Provider Abstraction & Contract", () => {
 
     const stream = provider.chatStream([{ role: "user", content: "hello" }]);
     await expect(async () => {
-      for await (const _ of stream) {
-        // should not reach here
+      for await (const chunk of stream) {
+        void chunk;
       }
     }).rejects.toThrow("NVIDIA Nemotron API is not configured. Missing NVIDIA_API_KEY.");
   });

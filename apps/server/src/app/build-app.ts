@@ -18,7 +18,10 @@ import { authPlugin } from "../plugins/auth.plugin.js";
 import { proxyGatePlugin } from "../plugins/proxy-gate.plugin.js";
 import { isAllowedBrowserOrigin, resolveAllowedOrigins } from "../auth/origins.js";
 import type { AIProvider } from "../ai/provider.js";
-import type { AshviOrchestrator } from "../orchestrator/index.js";
+import { NVIDIAProvider } from "../ai/nvidia.provider.js";
+import { AshviOrchestrator, ProviderRegistry } from "../orchestrator/index.js";
+import { WebSearchService } from "../tools/search.tool.js";
+import { ImageService } from "../images/image.service.js";
 import type { VoiceService } from "../voice/index.js";
 
 export function buildApp(
@@ -95,12 +98,64 @@ export function buildApp(
 
   app.register(multipart, { limits: { files: 1, fileSize: 10 * 1024 * 1024 } });
   if ((options.withDatabase ?? true) && (environment.NODE_ENV !== "test" || options.withAuth)) app.register(authPlugin, { environment });
+
+  // Core AI Provider & Services instantiation
+  const nvidiaProvider = options.provider ?? new NVIDIAProvider({
+    apiKey: environment.NVIDIA_API_KEY,
+    baseURL: environment.NVIDIA_BASE_URL,
+    defaultModel: environment.NVIDIA_MODEL,
+    temperature: environment.NVIDIA_TEMPERATURE,
+    topP: environment.NVIDIA_TOP_P,
+    maxTokens: environment.NVIDIA_MAX_TOKENS,
+    enableThinking: environment.NVIDIA_ENABLE_THINKING,
+  });
+
+  const registry = new ProviderRegistry();
+  registry.register(
+    {
+      id: "nvidia",
+      name: "NVIDIA Nemotron",
+      provider: nvidiaProvider,
+      defaultModel: environment.NVIDIA_MODEL,
+      supportsStreaming: true,
+      priority: 1,
+    },
+    true
+  );
+
+  const searchService = new WebSearchService({
+    enabled: environment.ASHVI_SEARCH_ENABLED,
+    tavilyApiKey: environment.TAVILY_API_KEY,
+  });
+
+  const imageService = new ImageService({
+    enabled: environment.ASHVI_IMAGE_PROVIDER !== "disabled",
+    provider:
+      environment.ASHVI_IMAGE_PROVIDER === "openai"
+        ? "openai"
+        : environment.ASHVI_IMAGE_PROVIDER === "disabled"
+        ? "disabled"
+        : "pollinations",
+    openaiApiKey: environment.OPENAI_API_KEY,
+  });
+
+  const orchestrator =
+    options.orchestrator ??
+    new AshviOrchestrator({
+      registry,
+      defaultProvider: nvidiaProvider,
+      defaultModel: environment.NVIDIA_MODEL,
+      logger: app.log,
+      searchService,
+      imageService,
+    });
+
   app.register(healthRoutes, { environment });
   app.register(authRoutes, { environment });
-  app.register(imageRoutes, { environment });
-  app.register(notebookRoutes, { orchestrator: options.orchestrator });
-  app.register(voiceRoutes, { environment, voiceService: options.voiceService, orchestrator: options.orchestrator });
-  app.register(conversationRoutes, { environment, provider: options.provider, orchestrator: options.orchestrator });
+  app.register(imageRoutes, { environment, imageService, provider: nvidiaProvider });
+  app.register(notebookRoutes, { orchestrator });
+  app.register(voiceRoutes, { environment, voiceService: options.voiceService, orchestrator, provider: nvidiaProvider });
+  app.register(conversationRoutes, { environment, provider: nvidiaProvider, orchestrator });
   app.register(memoryRoutes);
   app.register(documentRoutes);
   app.register(settingsRoutes);

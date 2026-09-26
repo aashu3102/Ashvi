@@ -1,8 +1,8 @@
 {
   "name": "ashvi",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "private": true,
-  "description": "Ashvi v0 local-first AI assistant foundation",
+  "description": "Ashvi V1 local-first AI assistant foundation",
   "packageManager": "npm@11.19.0",
   "workspaces": [
     "apps/*",

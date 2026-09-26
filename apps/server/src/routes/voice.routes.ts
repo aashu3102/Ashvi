@@ -9,7 +9,7 @@ import type { AIProvider } from "../ai/provider.js";
 import { NVIDIAProvider } from "../ai/nvidia.provider.js";
 import { MemoryService } from "../memory/memory.service.js";
 import { DocumentService } from "../rag/document.service.js";
-import { AshviOrchestrator } from "../orchestrator/index.js";
+import { AshviOrchestrator, OrchestratorExecutionError } from "../orchestrator/index.js";
 import { ProviderRegistry } from "../orchestrator/model-router.js";
 import { addAssistantMessage, addUserMessage, getConversation } from "../services/conversation.service.js";
 import { retrieveDocumentContext } from "../services/document.service.js";
@@ -238,7 +238,7 @@ export async function voiceRoutes(
       };
     } catch (error) {
       request.log.error({ err: error }, "Voice conversation failed");
-      if (error instanceof Error && error.name === "OrchestratorExecutionError" && (error as any).code === "AI_PROVIDER_NOT_CONFIGURED") {
+      if (error instanceof OrchestratorExecutionError && error.code === "AI_PROVIDER_NOT_CONFIGURED") {
         return reply.code(503).send({ error: { code: "AI_PROVIDER_NOT_CONFIGURED", message: "No AI provider is currently configured." } });
       }
       const message = error instanceof Error ? error.message : "Voice conversation failed.";
@@ -360,7 +360,7 @@ export async function voiceRoutes(
       }
     } catch (error) {
       const msg = error instanceof Error ? error.message : "Stream error";
-      if (error instanceof Error && error.name === "OrchestratorExecutionError" && (error as any).code === "AI_PROVIDER_NOT_CONFIGURED") {
+      if (error instanceof OrchestratorExecutionError && error.code === "AI_PROVIDER_NOT_CONFIGURED") {
         sendEvent({ type: "error", message: "No AI provider is currently configured.", code: "AI_PROVIDER_NOT_CONFIGURED", sessionId });
       } else {
         sendEvent({ type: "error", message: msg, sessionId });

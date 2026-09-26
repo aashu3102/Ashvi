@@ -41,8 +41,9 @@ export class ProviderRegistry {
     intent: TaskIntent,
     requestedProviderId?: string,
     modelOverride?: string,
-    options: { enableSearch?: boolean; isPrivateOnly?: boolean } = {}
+    _options: { enableSearch?: boolean; isPrivateOnly?: boolean } = {}
   ): RouteDecision {
+    void _options;
     // 1. Explicitly requested provider
     if (requestedProviderId && this.providers.has(requestedProviderId)) {
       const reg = this.providers.get(requestedProviderId)!;

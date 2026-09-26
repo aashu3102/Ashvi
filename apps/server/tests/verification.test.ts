@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { verifyAnswer } from "../src/services/verification.service.js";
+import { verifyAnswer, verifyTaskResponse } from "../src/orchestrator/verification-layer.js";
 
 describe("verification service", () => {
   it("flags uncertain or fabricated-looking answers", () => {
@@ -28,5 +28,11 @@ describe("verification service", () => {
 
     expect(result.needsVerification).toBe(false);
     expect(result.sourceFiles).toEqual(["launch-plan.md"]);
+  });
+
+  it("verifyTaskResponse returns verified state on cited evidence", () => {
+    const res = verifyTaskResponse("According to launch-plan.md, launch is ready.", "[Source: launch-plan.md]\nLaunch plan");
+    expect(res.state).toBe("verified");
+    expect(res.confidence).toBe("high");
   });
 });

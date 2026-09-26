@@ -43,6 +43,14 @@ const environmentSchema = z.object({
   NVIDIA_TOP_P: z.coerce.number().min(0).max(1).default(0.95),
   NVIDIA_MAX_TOKENS: z.coerce.number().int().min(1).max(16384).default(16384),
   NVIDIA_ENABLE_THINKING: z.coerce.boolean().default(true),
+
+  // Web Search Grounding
+  ASHVI_SEARCH_ENABLED: z.coerce.boolean().default(true),
+  TAVILY_API_KEY: z.string().optional(),
+
+  // Image Generation
+  ASHVI_IMAGE_PROVIDER: z.enum(["pollinations", "openai", "disabled"]).default("pollinations"),
+  OPENAI_API_KEY: z.string().optional(),
 });
 
 export type Environment = z.infer<typeof environmentSchema>;

@@ -121,7 +121,7 @@ export type OrchestratorStreamEvent =
   | { type: "memory_suggestion"; suggestion: string }
   | { type: "chunk"; content: string }
   | { type: "sources"; sources: SearchSource[] }
-  | { type: "image"; image: GeneratedImageItem }
+  | { type: "image"; image: GeneratedImageItem; images?: GeneratedImageItem[] }
   | { type: "done"; assistant?: unknown; task: OrchestratorTask }
   | { type: "error"; error: string; code?: string };
 

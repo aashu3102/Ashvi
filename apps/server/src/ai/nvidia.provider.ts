@@ -1,15 +1,11 @@
 import OpenAI from "openai";
-import type { Environment } from "../config/env.js";
 import type {
   AIProvider,
-  AIProviderNotConfiguredError,
   ChatTurn,
   ProviderChatOptions,
   ProviderChatResult,
   ProviderStreamChunk,
-  ImageGenerationOptions,
   ImageGenerationResult,
-  SearchSource,
 } from "./provider.js";
 
 export interface NVIDIAProviderConfig {
@@ -97,10 +93,6 @@ export class NVIDIAProvider implements AIProvider {
     return formatted;
   }
 
-  private extractSources(_groundingMetadata: unknown): SearchSource[] {
-    return [];
-  }
-
   async chat(messages: ChatTurn[], options: ProviderChatOptions = {}): Promise<ProviderChatResult> {
     const client = this.ensureClient();
     const model = normalizeModel(options.model ?? this.defaultModel);
@@ -121,14 +113,14 @@ export class NVIDIAProvider implements AIProvider {
 
       const choice = response.choices?.[0];
       const content = choice?.message?.content ?? "";
-      const reasoningContent = (choice?.message as any)?.reasoning_content ?? undefined;
+      const reasoningContent = (choice?.message as unknown as { reasoning_content?: string })?.reasoning_content ?? undefined;
 
       return {
         content: content,
         sources: undefined,
         searchUsed: false,
         modelUsed: model,
-        groundingMetadata: reasoningContent ? { reasoningContent } : undefined,
+        groundingMetadata: reasoningContent ? { reasoning: reasoningContent } : undefined,
       };
     } catch (err: unknown) {
       const errorMsg = err instanceof Error ? err.message : String(err);
@@ -159,7 +151,7 @@ export class NVIDIAProvider implements AIProvider {
       for await (const chunk of stream) {
         const choice = chunk.choices?.[0];
         const content = choice?.delta?.content ?? "";
-        const reasoningContent = (choice?.delta as any)?.reasoning_content ?? "";
+        const reasoningContent = (choice?.delta as unknown as { reasoning_content?: string })?.reasoning_content ?? "";
 
         if (reasoningContent) {
           accumulatedReasoning += reasoningContent;
@@ -188,7 +180,7 @@ export class NVIDIAProvider implements AIProvider {
     }
   }
 
-  async generateImage(_options: ImageGenerationOptions): Promise<ImageGenerationResult> {
+  async generateImage(): Promise<ImageGenerationResult> {
     throw new Error("Image generation is not supported by NVIDIA Nemotron provider.");
   }
 }

@@ -7,6 +7,11 @@ import {
 } from "../src/orchestrator/privacy-classifier.js";
 
 describe("Privacy Classifier — Verification Suite", () => {
+  it("exports valid PRIVATE_KEYWORDS list", () => {
+    expect(Array.isArray(PRIVATE_KEYWORDS)).toBe(true);
+    expect(PRIVATE_KEYWORDS.length).toBeGreaterThan(0);
+  });
+
   // Test 1: Conversation containing "Barbie" becomes PRIVATE.
   it("Test 1: Conversation containing 'Barbie' becomes PRIVATE", () => {
     expect(containsPrivateKeyword("Hello Barbie")).toBe(true);

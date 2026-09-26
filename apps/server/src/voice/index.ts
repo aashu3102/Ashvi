@@ -13,4 +13,3 @@ export * from "./VoiceService.js";
 
 // Legacy exports for backwards compatibility
 export { SpeechToTextProvider, TextToSpeechProvider, VoiceProviderError } from "./provider.js";
-export { FasterWhisperProvider } from "./faster-whisper.provider.js";

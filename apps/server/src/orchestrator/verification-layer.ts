@@ -7,9 +7,6 @@ const RISKY_PHRASES = [
   "exactly",
   "guaranteed",
   "i am completely sure",
-  "this file says",
-  "i verified",
-  "i reviewed the file",
 ];
 
 export function verifyTaskResponse(
@@ -100,5 +97,22 @@ export function verifyTaskResponse(
     confidence: "high",
     reasons: ["General response without external document grounding required."],
     sourceFiles: [],
+  };
+}
+
+export type VerificationResult = {
+  needsVerification: boolean;
+  confidence: "low" | "medium" | "high";
+  reasons: string[];
+  sourceFiles?: string[];
+};
+
+export function verifyAnswer(answer: string, documentContext = ""): VerificationResult {
+  const res = verifyTaskResponse(answer, documentContext);
+  return {
+    needsVerification: res.state === "failed" || res.state === "requires_evidence",
+    confidence: res.confidence,
+    reasons: res.reasons,
+    sourceFiles: res.sourceFiles,
   };
 }

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { FastifyBaseLogger } from "fastify";
-import type { AIProvider, ProviderChatResult, ProviderStreamChunk, SearchSource } from "../ai/provider.js";
+import type { AIProvider, ProviderChatResult, SearchSource } from "../ai/provider.js";
 import { classifyIntent } from "./intent-classifier.js";
 import { buildOrchestratorContext } from "./context-builder.js";
 import { planTask } from "./task-planner.js";
@@ -32,6 +32,7 @@ export function formatUserSafeError(
   error: unknown,
   _attemptedProviders: string[] = []
 ): { message: string; code: string } {
+  void _attemptedProviders;
   const rawMessage = error instanceof Error ? error.message : String(error ?? "");
   const lower = rawMessage.toLowerCase();
 
@@ -90,6 +91,8 @@ export function formatUserSafeError(
 
 import type { MemoryService } from "../memory/memory.service.js";
 import type { DocumentService } from "../rag/document.service.js";
+import { WebSearchService } from "../tools/search.tool.js";
+import { ImageService } from "../images/image.service.js";
 
 export interface OrchestratorOptions {
   registry?: ProviderRegistry;
@@ -98,12 +101,16 @@ export interface OrchestratorOptions {
   logger?: FastifyBaseLogger;
   memoryService?: MemoryService;
   documentService?: DocumentService;
+  searchService?: WebSearchService;
+  imageService?: ImageService;
 }
 
 export class AshviOrchestrator {
   public registry: ProviderRegistry;
   public memoryService?: MemoryService;
   public documentService?: DocumentService;
+  public searchService: WebSearchService;
+  public imageService?: ImageService;
   private logger: OrchestratorLogger;
 
   constructor(options: OrchestratorOptions = {}) {
@@ -111,6 +118,8 @@ export class AshviOrchestrator {
     this.logger = new OrchestratorLogger(options.logger);
     this.memoryService = options.memoryService;
     this.documentService = options.documentService;
+    this.searchService = options.searchService ?? new WebSearchService();
+    this.imageService = options.imageService;
 
     if (options.defaultProvider) {
       this.registry.register(
@@ -118,7 +127,7 @@ export class AshviOrchestrator {
           id: "default",
           name: "Default Provider",
           provider: options.defaultProvider,
-          defaultModel: options.defaultModel ?? "gemini-3.6-flash",
+          defaultModel: options.defaultModel ?? "nvidia/nemotron-3-ultra-550b-a55b",
           supportsStreaming: typeof options.defaultProvider.chatStream === "function",
         },
         true
@@ -235,6 +244,35 @@ export class AshviOrchestrator {
     this.logger.logTaskPlanned(task);
 
     const enableSearch = Boolean(input.enableSearch || task.intent === "web_research");
+    if (enableSearch && input.prompt) {
+      try {
+        const searchResult = await this.searchService.search(input.prompt);
+        if (searchResult.results.length > 0) {
+          task.searchUsed = true;
+          task.sources = searchResult.results.map((r) => ({
+            title: r.title,
+            url: r.url,
+            snippet: r.snippet,
+          }));
+          const searchContext = this.searchService.formatContext(searchResult.results);
+          const inputMessages = input.messages ? [...input.messages] : [];
+          const lastMsg = inputMessages.at(-1);
+          if (!lastMsg || lastMsg.role.toLowerCase() !== "user" || lastMsg.content !== input.prompt) {
+            inputMessages.push({ role: "user", content: input.prompt });
+          }
+          task.context.recentMessages = buildOrchestratorContext(
+            inputMessages,
+            documentContext,
+            memoryContext,
+            task.intent,
+            { language: input.language, searchContext }
+          );
+        }
+      } catch (searchErr) {
+        this.logger.logError(task.requestId, "web_search", searchErr);
+      }
+    }
+
     let route = this.registry.route(task.intent, input.providerId, input.modelOverride, {
       enableSearch,
       isPrivateOnly: input.isPrivateOnly,
@@ -248,10 +286,18 @@ export class AshviOrchestrator {
 
     try {
       let content = "";
-      if (task.intent === "image_generation" && typeof route.provider.generateImage === "function") {
-        const imgResult = await route.provider.generateImage({ prompt: input.prompt });
-        task.images = imgResult.images;
-        content = `I have generated an image for you: "${input.prompt}".`;
+      if (task.intent === "image_generation") {
+        if (this.imageService && (await this.imageService.isAvailable())) {
+          const imgResult = await this.imageService.generateImage({ prompt: input.prompt });
+          task.images = imgResult.images;
+          content = `I have generated an image for you: "${input.prompt}".`;
+        } else if (typeof route.provider.generateImage === "function") {
+          const imgResult = await route.provider.generateImage({ prompt: input.prompt });
+          task.images = imgResult.images;
+          content = `I have generated an image for you: "${input.prompt}".`;
+        } else {
+          content = "Image generation service is currently unavailable or disabled.";
+        }
       } else {
         let chatOutput: string | ProviderChatResult;
         try {
@@ -404,6 +450,42 @@ export class AshviOrchestrator {
     };
 
     const enableSearch = Boolean(input.enableSearch || task.intent === "web_research");
+    if (enableSearch && input.prompt) {
+      try {
+        yield {
+          type: "stage",
+          stage: "searching_web",
+          details: { query: input.prompt },
+        };
+        const searchResult = await this.searchService.search(input.prompt);
+        if (searchResult.results.length > 0) {
+          task.searchUsed = true;
+          task.sources = searchResult.results.map((r) => ({
+            title: r.title,
+            url: r.url,
+            snippet: r.snippet,
+          }));
+          const searchContext = this.searchService.formatContext(searchResult.results);
+          yield { type: "sources", sources: task.sources };
+
+          const inputMessages = input.messages ? [...input.messages] : [];
+          const lastMsg = inputMessages.at(-1);
+          if (!lastMsg || lastMsg.role.toLowerCase() !== "user" || lastMsg.content !== input.prompt) {
+            inputMessages.push({ role: "user", content: input.prompt });
+          }
+          task.context.recentMessages = buildOrchestratorContext(
+            inputMessages,
+            documentContext,
+            memoryContext,
+            task.intent,
+            { language: input.language, searchContext }
+          );
+        }
+      } catch (searchErr) {
+        this.logger.logError(task.requestId, "web_search", searchErr);
+      }
+    }
+
     let route = this.registry.route(task.intent, input.providerId, input.modelOverride, {
       enableSearch,
       isPrivateOnly: input.isPrivateOnly,
@@ -418,14 +500,30 @@ export class AshviOrchestrator {
     let fullContent = "";
 
     try {
-      if (task.intent === "image_generation" && typeof route.provider.generateImage === "function") {
-        yield { type: "chunk", content: "Generating your image with Nano Banana..." };
-        const imgResult = await route.provider.generateImage({ prompt: input.prompt });
-        task.images = imgResult.images;
-        for (const img of imgResult.images) {
-          yield { type: "image", image: img };
+      if (task.intent === "image_generation") {
+        yield { type: "chunk", content: "Generating your image..." };
+        if (this.imageService && (await this.imageService.isAvailable())) {
+          const imgResult = await this.imageService.generateImage({ prompt: input.prompt });
+          task.images = imgResult.images;
+          for (const img of imgResult.images) {
+            yield { type: "image", image: img, images: [img] };
+          }
+          fullContent = `I have generated an image for you: "${input.prompt}".`;
+        } else if (typeof route.provider.generateImage === "function") {
+          const imgResult = await route.provider.generateImage({ prompt: input.prompt });
+          task.images = imgResult.images;
+          for (const img of imgResult.images) {
+            yield { type: "image", image: img, images: [img] };
+          }
+          fullContent = `I have generated an image for you: "${input.prompt}".`;
+        } else {
+          yield {
+            type: "error",
+            error: "Image generation service is currently unavailable or disabled.",
+            code: "IMAGE_PROVIDER_UNAVAILABLE",
+          };
+          return;
         }
-        fullContent = `I have generated an image for you: "${input.prompt}".`;
       } else {
         let streamActive = true;
         let currentRoute = route;

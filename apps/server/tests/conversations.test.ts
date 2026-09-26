@@ -3,7 +3,7 @@ import dotenv from "dotenv";
 import { resolve } from "node:path";
 import { buildApp } from "../src/app/build-app.js";
 import { loadEnvironment } from "../src/config/env.js";
-import type { AIProvider } from "../src/ai/provider.js";
+import type { AIProvider, ChatTurn } from "../src/ai/provider.js";
 
 dotenv.config({ path: resolve(process.cwd(), "../../.env") });
 
@@ -15,10 +15,12 @@ const mockProvider: AIProvider = {
   id: "mock",
   name: "Mock Provider",
   async isAvailable() { return true; },
-  async chat(_messages: any[]) {
+  async chat(_messages: ChatTurn[]) {
+    void _messages;
     return { content: "Mock response", modelUsed: "mock-model" };
   },
-  async *chatStream(_messages: any[]) {
+  async *chatStream(_messages: ChatTurn[]) {
+    void _messages;
     yield { content: "Mock ", sources: undefined, searchUsed: false };
     yield { content: "response", sources: undefined, searchUsed: false, done: true };
   },
